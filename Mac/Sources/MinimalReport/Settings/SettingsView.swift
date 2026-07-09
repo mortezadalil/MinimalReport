@@ -48,7 +48,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 360 : 300
+        provider == .openrouter ? 410 : 350
     }
 
     // MARK: - Title
@@ -166,6 +166,31 @@ struct SettingsView: View {
                     if let err = loginItemError {
                         Text(err).font(.caption2).foregroundColor(.red.opacity(0.8))
                     }
+                }
+            }
+
+            // Feedback / Support
+            Divider().overlay(Color.white.opacity(0.08))
+
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Report a bug or suggest a feature")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.85))
+                    Button {
+                        if let url = URL(string: "https://support.bodoapp.com/minimalreport/") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "envelope")
+                            Text("Open Support Page")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
