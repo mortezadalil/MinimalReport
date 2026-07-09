@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleExecutable</key>
 	<string>MinimalReport</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.morteza.minimalreport</string>
 	<key>CFBundleName</key>
@@ -18,7 +20,6 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- ip-api.com only supports HTTP, all other endpoints (ipinfo, ipify, GLM, OpenRouter) use HTTPS -->
 		<key>NSExceptionDomains</key>
 		<dict>
 			<key>ip-api.com</key>
