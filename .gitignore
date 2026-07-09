@@ -1,0 +1,33 @@
+# ---- Build artifacts (match at any depth) ----
+.build/
+*.app/
+dist/
+*.o
+*.d
+*.swiftmodule
+
+# ---- Xcode / SPM ----
+.swiftpm/
+xcuserdata/
+DerivedData/
+Package.resolved
+
+# ---- macOS ----
+.DS_Store
+._*
+
+# ---- Secrets / local config (never commit) ----
+# API keys live in the macOS Keychain, never in the repo — but guard against
+# any local env / secret files a developer might drop in by mistake.
+*.env
+.env.*
+secrets.plist
+*.secret
+*credentials*
+*apikey*
+*api_key*
+
+# ---- Editor ----
+.vscode/
+.idea/
+*.swp

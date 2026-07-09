@@ -1,0 +1,110 @@
+import SwiftUI
+
+struct PopoverView: View {
+    @ObservedObject var appState: AppState
+    let onRefresh: () -> Void
+    let onOpenCleanup: () -> Void
+    let onOpenSettings: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            headerRow
+            separator
+            statRow(label: "IP", value: "\(appState.countryFlag)  \(appState.ipAddress)")
+            statRow(label: "Disk", value: appState.diskDisplay)
+            statRow(label: "RAM", value: appState.ramDisplay)
+            Spacer(minLength: 8)
+            refreshButton
+            cleanupButton
+            settingsButton
+        }
+        .padding(20)
+        .frame(width: 280, height: 300)
+        .background(Color(red: 0.10, green: 0.10, blue: 0.12))
+    }
+
+    private var headerRow: some View {
+        HStack {
+            Text("System Status")
+                .font(.headline)
+                .foregroundColor(.white)
+            Spacer()
+            if let date = appState.lastUpdated {
+                Text(date, style: .time)
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.4))
+            }
+        }
+    }
+
+    private var separator: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.12))
+            .frame(height: 1)
+    }
+
+    private var refreshButton: some View {
+        Button(action: onRefresh) {
+            HStack(spacing: 6) {
+                if appState.isRefreshing {
+                    ProgressView()
+                        .scaleEffect(0.65)
+                        .frame(width: 12, height: 12)
+                        .tint(.white)
+                }
+                Text(appState.isRefreshing ? "Refreshing..." : "Refresh")
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background(Color.white.opacity(0.09))
+            .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .disabled(appState.isRefreshing)
+    }
+
+    private var cleanupButton: some View {
+        Button(action: onOpenCleanup) {
+            HStack(spacing: 6) {
+                Image(systemName: "trash")
+                Text("Disk Cleanup")
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background(Color.white.opacity(0.06))
+            .foregroundColor(.white.opacity(0.9))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var settingsButton: some View {
+        Button(action: onOpenSettings) {
+            HStack(spacing: 6) {
+                Image(systemName: "gearshape")
+                Text("Settings")
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background(Color.white.opacity(0.04))
+            .foregroundColor(.white.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func statRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.45))
+                .frame(width: 32, alignment: .leading)
+            Text(value)
+                .font(.system(.callout, design: .monospaced))
+                .foregroundColor(.white)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
