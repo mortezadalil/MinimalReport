@@ -25,8 +25,10 @@ swift build -c release 2>&1 | grep -v "^Build complete"
 pkill -x "${APP_NAME}" 2>/dev/null || true
 rm -rf "${APP_NAME}.app"
 mkdir -p "${APP_NAME}.app/Contents/MacOS"
+mkdir -p "${APP_NAME}.app/Contents/Resources"
 cp ".build/release/${APP_NAME}" "${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
 cp Resources/Info.plist "${APP_NAME}.app/Contents/Info.plist"
+cp Resources/AppIcon.icns "${APP_NAME}.app/Contents/Resources/AppIcon.icns"
 echo "  ✓ App bundle created"
 
 # --- 4. Quarantine workaround ---
