@@ -10,6 +10,7 @@ class AppState: ObservableObject {
     @Published var ramAvailable: Int64 = 0
     @Published var isRefreshing: Bool = false
     @Published var lastUpdated: Date? = nil
+    @Published var updateStatus: UpdateStatus = .idle
 
     var menuBarTitle: String { "\(countryFlag) \(ipAddress)" }
 

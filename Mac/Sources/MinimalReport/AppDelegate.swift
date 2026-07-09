@@ -35,7 +35,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupPopover() {
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 280, height: 300)
+        popover.contentSize = NSSize(width: 280, height: 340)
         popover.behavior = .transient
         popover.appearance = NSAppearance(named: .darkAqua)
         popover.contentViewController = NSHostingController(
@@ -129,6 +129,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
+            checkForUpdates()
+        }
+    }
+
+    // MARK: - Update check
+
+    private func checkForUpdates() {
+        Task { @MainActor in
+            if case .checking = appState.updateStatus { return }   // already in-flight
+            appState.updateStatus = .checking
+            let status = await UpdateChecker.check()
+            appState.updateStatus = status
         }
     }
 }

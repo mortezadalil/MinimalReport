@@ -17,9 +17,10 @@ struct PopoverView: View {
             refreshButton
             cleanupButton
             settingsButton
+            footerRow
         }
         .padding(20)
-        .frame(width: 280, height: 300)
+        .frame(width: 280, height: 340)
         .background(Color(red: 0.10, green: 0.10, blue: 0.12))
     }
 
@@ -92,6 +93,53 @@ struct PopoverView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+
+    @ViewBuilder
+    private var footerRow: some View {
+        VStack(spacing: 4) {
+            Text("v\(appVersion)")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.4))
+            updateStatusLabel
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var updateStatusLabel: some View {
+        switch appState.updateStatus {
+        case .idle:
+            Text("").font(.caption2)
+        case .checking:
+            HStack(spacing: 4) {
+                ProgressView().scaleEffect(0.4).frame(width: 8, height: 8).tint(.white.opacity(0.5))
+                Text("Checking…")
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.4))
+            }
+        case .upToDate:
+            Text("✓ App is up to date")
+                .font(.caption2)
+                .foregroundColor(.green.opacity(0.8))
+        case .available(let latest):
+            if let url = URL(string: "https://github.com/mortezadalil/MinimalReport/releases/latest") {
+                Link(destination: url) {
+                    Text("↑ New version available (\(latest))")
+                        .font(.caption2.bold())
+                        .foregroundColor(.orange)
+                        .underline()
+                }
+            } else {
+                Text("↑ New version available (\(latest))")
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+            }
+        }
     }
 
     @ViewBuilder
