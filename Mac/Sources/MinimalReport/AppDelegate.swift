@@ -65,15 +65,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appState.$ipAddress
             .combineLatest(appState.$countryFlag)
             .receive(on: RunLoop.main)
-            .sink { [weak self] ip, flag in
-                self?.statusItem.button?.title = "\(flag) \(ip)"
-            }
+            .sink { [weak self] _, _ in self?.updateMenuTitle() }
             .store(in: &cancellables)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateMenuTitle),
+            name: NSNotification.Name("minimalReport.ipSettingChanged"),
+            object: nil
+        )
+    }
+
+    @objc private func updateMenuTitle() {
+        let ip = appState.ipAddress
+        let flag = appState.countryFlag
+        let showIp = UserDefaults.standard.object(forKey: Self.showIpKey) as? Bool ?? true
+        statusItem.button?.title = showIp ? "\(flag) \(ip)" : flag
     }
 
     // MARK: - Network speed
 
     private static let networkSpeedKey = "minimalReport.showNetworkSpeed"
+    private static let showIpKey = "minimalReport.showIpInMenuBar"
 
     private var networkSpeedEnabled: Bool {
         UserDefaults.standard.object(forKey: Self.networkSpeedKey) as? Bool ?? true

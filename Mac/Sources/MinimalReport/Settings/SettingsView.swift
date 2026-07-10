@@ -22,6 +22,8 @@ struct SettingsView: View {
     @State private var loginItemError: String? = nil
     @State private var showNetworkInMenuBar: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showNetworkSpeed") as? Bool ?? true
+    @State private var showIpInMenuBar: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showIpInMenuBar") as? Bool ?? true
 
     private enum TestState: Equatable { case idle, testing, ok, failed(String) }
 
@@ -50,7 +52,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 442 : 382
+        provider == .openrouter ? 470 : 410
     }
 
     // MARK: - Title
@@ -176,6 +178,17 @@ struct SettingsView: View {
                 Spacer().frame(width: 60)
                 Toggle(isOn: $showNetworkInMenuBar) {
                     Text("Show network speed in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            // IP address in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showIpInMenuBar) {
+                    Text("Show IP address in menu bar")
                         .font(.callout)
                         .foregroundColor(.white.opacity(0.85))
                 }
@@ -314,6 +327,9 @@ struct SettingsView: View {
         UserDefaults.standard.set(showNetworkInMenuBar, forKey: "minimalReport.showNetworkSpeed")
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.networkSpeedSettingChanged"), object: nil)
+        UserDefaults.standard.set(showIpInMenuBar, forKey: "minimalReport.showIpInMenuBar")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("minimalReport.ipSettingChanged"), object: nil)
         onDone()
     }
 
