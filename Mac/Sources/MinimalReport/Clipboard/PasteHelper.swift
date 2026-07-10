@@ -21,11 +21,12 @@ enum PasteHelper {
     /// currently on the clipboard. The caller is responsible for having already
     /// put the desired item on the pasteboard (see `ClipboardHistoryManager`).
     ///
-    /// Returns `false` if Accessibility isn't granted (can't post events).
-    @discardableResult
-    static func synthesizePaste() -> Bool {
-        guard isTrusted else { return false }
-
+    /// This posts unconditionally: if Accessibility is granted the keystroke is
+    /// delivered; if not, macOS silently drops it (the item is still on the
+    /// clipboard for a manual ⌘V). We deliberately do NOT guard on
+    /// `AXIsProcessTrusted()` because that check can report a stale `false`
+    /// after the app is rebuilt/re-signed, which would wrongly disable paste.
+    static func synthesizePaste() {
         let source = CGEventSource(stateID: .combinedSessionState)
         let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)  // 0x09 = V
         let cmdUp   = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
@@ -35,7 +36,6 @@ enum PasteHelper {
 
         cmdDown?.post(tap: .cgSessionEventTap)
         cmdUp?.post(tap: .cgSessionEventTap)
-        return true
     }
 
     /// Writes the item to the system pasteboard and returns the new changeCount,

@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct PopoverView: View {
     @ObservedObject var appState: AppState
@@ -26,8 +27,11 @@ struct PopoverView: View {
     }
 
     private var headerRow: some View {
-        HStack {
-            Text("System Status")
+        HStack(spacing: 8) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 18, height: 18)
+            Text("Minimal Report")
                 .font(.headline)
                 .foregroundColor(.white)
             Spacer()

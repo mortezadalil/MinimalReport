@@ -8,17 +8,21 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
 
     private var history: ClipboardHistoryManager!
 
+    /// Minimum / initial content size — roughly 5 standard rows plus the header.
+    /// The panel never opens or resizes smaller than this (width and height).
+    static let defaultSize = NSSize(width: 380, height: 400)
+
     init(history: ClipboardHistoryManager) {
         self.history = history
 
         let styleMask: NSWindow.StyleMask = [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel]
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 460),
+            contentRect: NSRect(origin: .zero, size: Self.defaultSize),
             styleMask: styleMask,
             backing: .buffered,
             defer: false
         )
-        panel.title = "Clipboard History"
+        panel.title = "Minimal Report Clipboard History"
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
@@ -28,6 +32,9 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
         // non-activating paste-back flow).
         panel.hidesOnDeactivate = false
         panel.level = .floating
+        // Never let the panel shrink below ~5 standard rows (width + height).
+        panel.minSize = Self.defaultSize
+        panel.contentMinSize = Self.defaultSize
 
         super.init(window: panel)
         panel.delegate = self
@@ -53,6 +60,14 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
     func showNearCursor() {
         // Remember who was in front so we can restore focus + paste there.
         previousApp = NSWorkspace.shared.frontmostApplication
+        // Guarantee the panel opens at a usable size (never the collapsed tiny
+        // window). Grow to the default if a previous resize left it smaller.
+        if let window {
+            let s = window.frame.size
+            if s.width < Self.defaultSize.width || s.height < Self.defaultSize.height {
+                window.setContentSize(Self.defaultSize)
+            }
+        }
         showWindow(nil)
         positionNearCursor()
         // A non-activating panel becomes key WITHOUT making our app frontmost,
@@ -80,40 +95,41 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
         // being re-captured as a new (duplicate) history record.
         history.putOnPasteboard(item)
 
-        let trusted = PasteHelper.isTrusted
         close()
         // Return focus to the app the user came from, then paste there.
         previousApp?.activate()
 
-        if trusted {
-            // Small delay so focus finishes returning before the keystroke.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                PasteHelper.synthesizePaste()
-            }
-        } else {
-            showAccessibilityHint()
+        // ALWAYS attempt the paste. When Accessibility is granted the keystroke
+        // lands in the focused field; when it isn't, it silently no-ops (the
+        // item is already on the clipboard, so ⌘V still works manually). We do
+        // NOT gate this on AXIsProcessTrusted() because that check returns a
+        // stale false after the app is rebuilt/re-signed — gating here is what
+        // made the "press ⌘V" alert show on every selection.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            PasteHelper.synthesizePaste()
         }
+
+        // Nudge about Accessibility at most ONCE, ever.
+        if !PasteHelper.isTrusted { showAccessibilityHintOnce() }
     }
 
-    private static let promptedKey = "minimalReport.clipboardAXPrompted"
+    private static let hintShownKey = "minimalReport.clipboardAXHintShown"
 
-    private func showAccessibilityHint() {
-        // Only fire the system permission dialog ONCE, ever — otherwise it pops
-        // up on every selection.
-        let alreadyPrompted = UserDefaults.standard.bool(forKey: Self.promptedKey)
-        if !alreadyPrompted {
-            PasteHelper.ensureTrusted(prompt: true)
-            UserDefaults.standard.set(true, forKey: Self.promptedKey)
-        }
+    private func showAccessibilityHintOnce() {
+        guard !UserDefaults.standard.bool(forKey: Self.hintShownKey) else { return }
+        UserDefaults.standard.set(true, forKey: Self.hintShownKey)
+
+        // Fire the system permission dialog so the app appears in the list.
+        PasteHelper.ensureTrusted(prompt: true)
 
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "Item copied — press ⌘V to paste"
+        alert.messageText = "Enable automatic paste (optional)"
         alert.informativeText = """
-            Automatic paste needs Accessibility access. If you just enabled it in \
-            System Settings ▸ Privacy & Security ▸ Accessibility, please QUIT and \
-            reopen MinimalReport once — macOS only applies the permission to a \
-            freshly launched app.
+            To paste automatically, grant Accessibility access to MinimalReport in \
+            System Settings ▸ Privacy & Security ▸ Accessibility, then QUIT and \
+            reopen the app once. Until then, the item is copied — just press ⌘V. \
+            This message won't show again.
             """
         alert.addButton(withTitle: "OK")
         alert.runModal()
@@ -131,21 +147,30 @@ private struct ClipboardHistoryView: View {
     private let bg = Color(red: 0.10, green: 0.10, blue: 0.12)
     private let rowBg = Color.white.opacity(0.05)
 
+    /// The image item currently hovered — drives the preview modal.
+    @State private var hoveredImageID: UUID?
+
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider().overlay(Color.white.opacity(0.12))
             content
         }
+        .frame(minWidth: 380, minHeight: 400, maxHeight: .infinity)
         .background(bg)
     }
 
     private var header: some View {
-        HStack {
-            Text("Clipboard History")
-                .font(.headline)
+        HStack(spacing: 8) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 18, height: 18)
+            Text("Minimal Report Clipboard History")
+                .font(.subheadline.weight(.semibold))
                 .foregroundColor(.white)
-            Spacer()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 6)
             if !history.items.isEmpty {
                 Button(action: onClear) {
                     Text("Clear").font(.caption)
@@ -240,6 +265,28 @@ private struct ClipboardHistoryView: View {
                     .scaledToFill()
                     .frame(width: 30, height: 30)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
+                    // Hovering the thumbnail shows the full image in a modal;
+                    // leaving the thumbnail dismisses it.
+                    .onHover { inside in
+                        if inside {
+                            hoveredImageID = item.id
+                        } else if hoveredImageID == item.id {
+                            hoveredImageID = nil
+                        }
+                    }
+                    .popover(
+                        isPresented: Binding(
+                            get: { hoveredImageID == item.id },
+                            set: { if !$0, hoveredImageID == item.id { hoveredImageID = nil } }
+                        ),
+                        arrowEdge: .trailing
+                    ) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 420, maxHeight: 420)
+                            .padding(10)
+                    }
             } else {
                 Image(systemName: "photo")
                     .foregroundColor(.white.opacity(0.55))
