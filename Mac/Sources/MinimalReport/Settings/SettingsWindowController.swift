@@ -7,7 +7,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 410),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 442),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

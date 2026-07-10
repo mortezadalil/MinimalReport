@@ -73,7 +73,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Network speed
 
+    private static let networkSpeedKey = "minimalReport.showNetworkSpeed"
+
+    private var networkSpeedEnabled: Bool {
+        UserDefaults.standard.object(forKey: Self.networkSpeedKey) as? Bool ?? true
+    }
+
     private func startNetworkMonitor() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applyNetworkSpeedVisibility),
+            name: NSNotification.Name("minimalReport.networkSpeedSettingChanged"),
+            object: nil
+        )
         prevCounters = NetworkSpeedService.readCounters()
         prevCounterTime = Date()
         networkTimer = Timer.scheduledTimer(
@@ -84,6 +96,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             repeats: true
         )
         RunLoop.main.add(networkTimer!, forMode: .common)
+    }
+
+    @objc private func applyNetworkSpeedVisibility() {
+        if !networkSpeedEnabled {
+            statusItem.button?.image = nil
+        }
     }
 
     @objc private func tickNetworkSpeed() {
@@ -104,9 +122,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             upSamples.removeFirst();   upSamples.append(Self.normalizeSpeed(upBps))
 
             appState.updateNetworkSpeed(download: downBps, upload: upBps)
-            statusItem.button?.image = Self.makeNetworkImage(
-                downBps: downBps, upBps: upBps,
-                downSamples: downSamples, upSamples: upSamples)
+
+            if networkSpeedEnabled {
+                statusItem.button?.image = Self.makeNetworkImage(
+                    downBps: downBps, upBps: upBps,
+                    downSamples: downSamples, upSamples: upSamples)
+            }
         }
 
         prevCounters = counters

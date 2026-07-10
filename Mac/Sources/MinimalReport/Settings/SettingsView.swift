@@ -20,6 +20,8 @@ struct SettingsView: View {
     @State private var testState: TestState = .idle
     @State private var launchAtLogin: Bool = (SMAppService.mainApp.status == .enabled)
     @State private var loginItemError: String? = nil
+    @State private var showNetworkInMenuBar: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showNetworkSpeed") as? Bool ?? true
 
     private enum TestState: Equatable { case idle, testing, ok, failed(String) }
 
@@ -48,7 +50,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 410 : 350
+        provider == .openrouter ? 442 : 382
     }
 
     // MARK: - Title
@@ -167,6 +169,17 @@ struct SettingsView: View {
                         Text(err).font(.caption2).foregroundColor(.red.opacity(0.8))
                     }
                 }
+            }
+
+            // Network speed in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showNetworkInMenuBar) {
+                    Text("Show network speed in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
             }
 
             // Feedback / Support
@@ -298,6 +311,9 @@ struct SettingsView: View {
         AISettings.shared.glmModel = glmModel.isEmpty ? "glm-4.7" : glmModel
         AISettings.shared.openrouterApiKey = orApiKey
         AISettings.shared.openrouterModel = orModel.isEmpty ? "z-ai/glm-5.2" : orModel
+        UserDefaults.standard.set(showNetworkInMenuBar, forKey: "minimalReport.showNetworkSpeed")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("minimalReport.networkSpeedSettingChanged"), object: nil)
         onDone()
     }
 
