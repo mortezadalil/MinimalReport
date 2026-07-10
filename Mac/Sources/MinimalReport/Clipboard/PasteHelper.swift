@@ -17,16 +17,13 @@ enum PasteHelper {
         return AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
 
-    /// Loads `item` onto the system pasteboard, then synthesizes a Cmd+V keypress
-    /// so the focused field receives it automatically (true Win+V behavior).
+    /// Synthesizes a Cmd+V keypress so the focused field pastes whatever is
+    /// currently on the clipboard. The caller is responsible for having already
+    /// put the desired item on the pasteboard (see `ClipboardHistoryManager`).
     ///
-    /// If Accessibility isn't granted we can't synthesize the keystroke, so we
-    /// leave the content on the pasteboard and return `false` — the caller can
-    /// tell the user to press Cmd+V themselves.
+    /// Returns `false` if Accessibility isn't granted (can't post events).
     @discardableResult
-    static func paste(item: ClipboardItem) -> Bool {
-        putOnPasteboard(item)
-
+    static func synthesizePaste() -> Bool {
         guard isTrusted else { return false }
 
         let source = CGEventSource(stateID: .combinedSessionState)

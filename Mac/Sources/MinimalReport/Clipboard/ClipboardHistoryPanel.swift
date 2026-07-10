@@ -11,7 +11,7 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
     init(history: ClipboardHistoryManager) {
         self.history = history
 
-        let styleMask: NSWindow.StyleMask = [.titled, .closable, .resizable, .fullSizeContentView]
+        let styleMask: NSWindow.StyleMask = [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel]
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 460),
             styleMask: styleMask,
@@ -24,7 +24,9 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
         panel.isMovableByWindowBackground = true
         panel.isReleasedWhenClosed = false
         panel.appearance = NSAppearance(named: .darkAqua)
-        panel.hidesOnDeactivate = true
+        // Keep the panel up while another app stays frontmost (needed for the
+        // non-activating paste-back flow).
+        panel.hidesOnDeactivate = false
         panel.level = .floating
 
         super.init(window: panel)
@@ -43,12 +45,20 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
 
+    /// The app that was frontmost when the panel opened — so we can paste back
+    /// into it, not into ourselves.
+    private weak var previousApp: NSRunningApplication?
+
     /// Shows the panel near the current pointer location, clamped to the screen.
     func showNearCursor() {
+        // Remember who was in front so we can restore focus + paste there.
+        previousApp = NSWorkspace.shared.frontmostApplication
         showWindow(nil)
         positionNearCursor()
+        // A non-activating panel becomes key WITHOUT making our app frontmost,
+        // so the user's previous app keeps focus and the synthesized ⌘V lands
+        // in the right place.
         window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func positionNearCursor() {
@@ -65,26 +75,47 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
     }
 
     private func handleSelect(_ item: ClipboardItem) {
-        let pasted = PasteHelper.paste(item: item)
+        // Put the item on the clipboard THROUGH the manager so its changeCount
+        // stays in sync — this is what prevents the just-selected item from
+        // being re-captured as a new (duplicate) history record.
+        history.putOnPasteboard(item)
+
+        let trusted = PasteHelper.isTrusted
         close()
-        if !pasted {
-            // Accessibility not granted: content is on the clipboard, but we
-            // couldn't auto-paste. Nudge the user.
+        // Return focus to the app the user came from, then paste there.
+        previousApp?.activate()
+
+        if trusted {
+            // Small delay so focus finishes returning before the keystroke.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                PasteHelper.synthesizePaste()
+            }
+        } else {
             showAccessibilityHint()
         }
     }
 
+    private static let promptedKey = "minimalReport.clipboardAXPrompted"
+
     private func showAccessibilityHint() {
+        // Only fire the system permission dialog ONCE, ever — otherwise it pops
+        // up on every selection.
+        let alreadyPrompted = UserDefaults.standard.bool(forKey: Self.promptedKey)
+        if !alreadyPrompted {
+            PasteHelper.ensureTrusted(prompt: true)
+            UserDefaults.standard.set(true, forKey: Self.promptedKey)
+        }
+
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = "Item copied — press ⌘V to paste"
         alert.informativeText = """
-            To enable automatic paste, grant Accessibility access to MinimalReport \
-            in System Settings ▸ Privacy & Security ▸ Accessibility, then try again.
+            Automatic paste needs Accessibility access. If you just enabled it in \
+            System Settings ▸ Privacy & Security ▸ Accessibility, please QUIT and \
+            reopen MinimalReport once — macOS only applies the permission to a \
+            freshly launched app.
             """
         alert.addButton(withTitle: "OK")
-        // Trigger the permission prompt so the user can find us in the list.
-        PasteHelper.ensureTrusted(prompt: true)
         alert.runModal()
     }
 }
