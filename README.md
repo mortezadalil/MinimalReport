@@ -16,12 +16,19 @@
 
 ---
 
+<div align="center">
+  <img src="assets/screenshot.jpg" alt="MinimalReport screenshot" width="680">
+</div>
+
+---
+
 ## What is MinimalReport?
 
-MinimalReport is a **macOS menu bar app** — no dock icon, no Cmd+Tab entry, no bloat. Click the menu bar item to see your public IP, country, disk, and RAM at a glance. Open the Disk Cleanup window to reclaim space across every package manager and app directory on your Mac. Then let the **AI engine** analyze your system and tell you exactly what to delete, what's safe, and where every app hides its cache.
+MinimalReport is a **macOS menu bar app** — no dock icon, no Cmd+Tab entry, no bloat. Click the menu bar item to see your public IP, country, disk, RAM, and real-time network speed at a glance. Open the Disk Cleanup window to reclaim space across every package manager and app directory on your Mac. Then let the **AI engine** analyze your system and tell you exactly what to delete, what's safe, and where every app hides its cache.
 
 ```
-Menu bar:   🇮🇷  1.2.3.4    Wed 14:32
+Menu bar:   ↓ 12.4 KB/s ████  🇮🇷  1.2.3.4
+            ↑  3.1 KB/s ██
 ```
 
 ---
@@ -33,12 +40,15 @@ Menu bar:   🇮🇷  1.2.3.4    Wed 14:32
 | | |
 |---|---|
 | **Public IP + flag** | Detected concurrently from 3 services — shows the first response, falls back gracefully |
+| **Real-time network speed** | Download ↓ (green) and upload ↑ (yellow) shown directly in the menu bar — two stacked rows with KB/s or MB/s label and a 5-bar animated waveform, updated every second |
 | **Disk usage** | Free and total capacity, refreshed on demand |
 | **RAM usage** | Free + inactive memory via Mach kernel call |
 | **Auto-refresh** | Polls every 10 seconds in the background |
 | **Menu bar only** | `LSUIElement = YES` — zero dock presence |
 
 Three IP services fire simultaneously in a Swift `TaskGroup`; the fastest win is shown and the rest are cancelled. Country codes are converted to emoji flags via Unicode Regional Indicator scalars — no image assets needed.
+
+Network speed is measured by reading `getifaddrs` byte counters on all `en*`/`eth*` interfaces every second, computing the delta, and normalising to a log₁₀ scale so both idle (< 10 KB/s) and heavy (> 10 MB/s) traffic are clearly visible in the waveform.
 
 ---
 
@@ -204,7 +214,7 @@ cd Mac
 ./release.sh 1.0.0
 ```
 
-This builds the release binary, patches the version into `Info.plist`, strips the quarantine attribute, and produces:
+This compiles separate `arm64` and `x86_64` binaries, merges them into a **universal binary** with `lipo`, patches the version into `Info.plist`, strips the quarantine attribute, and produces:
 
 ```
 Mac/dist/
@@ -220,18 +230,21 @@ The script prints the exact `gh release create` command to upload both files to 
 
 ```
 MinimalReport/
+├── assets/                              # ← screenshots and marketing images
+│   └── screenshot.jpg
 ├── Mac/                                 # ← macOS app (current)
 │   ├── Package.swift                    # SPM manifest — macOS 13+, Swift 5 language mode
 │   ├── build.sh                         # compile + bundle script
-│   ├── release.sh                       # build + package DMG/ZIP for GitHub releases
+│   ├── release.sh                       # universal binary (arm64+x86_64) → DMG + ZIP
 │   ├── Resources/
 │   │   └── Info.plist                   # LSUIElement=YES, bundle ID, ATS
 │   └── Sources/MinimalReport/
 │       ├── main.swift                   # NSApplication bootstrap
-│       ├── AppDelegate.swift            # status item, popover, 10s polling
-│       ├── AppState.swift               # ObservableObject — IP, disk, RAM, refresh state
+│       ├── AppDelegate.swift            # status item, popover, 10s polling, network speed image
+│       ├── AppState.swift               # ObservableObject — IP, disk, RAM, network speed
 │       ├── IPService.swift              # concurrent fetch from 3 IP APIs
 │       ├── SystemStatsService.swift     # disk (FileManager) + RAM (Mach host_statistics64)
+│       ├── NetworkSpeedService.swift    # getifaddrs byte counters → KB/s or MB/s per second
 │       ├── PopoverView.swift            # dark-card SwiftUI popover
 │       │
 │       ├── Cleanup/
