@@ -52,6 +52,19 @@ Network speed is measured by reading `getifaddrs` byte counters on all `en*`/`et
 
 ---
 
+### 📋 Clipboard History
+
+| | |
+|---|---|
+| **Win+V for macOS** | Press **⌘⌥V** (Cmd+Option+V) anywhere to open a popup of your last 100 clipboard items — text and images |
+| **Pick to paste** | Click any item to paste it into the focused field (auto-paste needs Accessibility permission; falls back to copy-only) |
+| **Configurable** | Toggle the feature and set a max storage size (default 50 MB) in Settings |
+| **In-memory only** | History lives only while the app runs — nothing is written to disk |
+
+The history is captured by polling `NSPasteboard.general.changeCount` once per second; the global hotkey is registered via the Carbon Event Hot Key API.
+
+---
+
 ### 🧹 Disk Cleanup
 
 A full-featured cleanup window with **live sizes**, sort-by-size, and a single native admin-password prompt (Touch ID capable) for all privileged deletions.

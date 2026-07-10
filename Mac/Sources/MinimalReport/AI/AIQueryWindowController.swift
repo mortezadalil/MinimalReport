@@ -20,6 +20,11 @@ final class AIQueryWindowController: NSWindowController, NSWindowDelegate {
         window.appearance = NSAppearance(named: .darkAqua)
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
+        // Keep the window inside the screen with a sensible default + min size.
+        // The response area already scrolls.
+        WindowSizing.constrain(window,
+                               preferred: NSSize(width: 640, height: 500),
+                               minSize: NSSize(width: 540, height: 400))
 
         self.init(window: window)
         window.delegate = self
@@ -32,13 +37,15 @@ final class AIQueryWindowController: NSWindowController, NSWindowDelegate {
 
     func show(centeredIn parent: NSWindow? = nil) {
         showWindow(nil)
+        let ww = window?.frame.size ?? NSSize(width: 640, height: 500)
         if let parent {
             let pw = parent.frame
-            let ww = window?.frame.size ?? NSSize(width: 640, height: 500)
-            window?.setFrameOrigin(NSPoint(
+            let candidate = NSPoint(
                 x: pw.minX + (pw.width - ww.width) / 2,
                 y: pw.minY + (pw.height - ww.height) / 2
-            ))
+            )
+            // Clamp so the window can never open partially off-screen.
+            window?.setFrameOrigin(WindowSizing.clampedOrigin(for: ww, near: candidate))
         } else {
             window?.center()
         }

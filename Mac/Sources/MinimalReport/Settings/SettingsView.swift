@@ -24,6 +24,12 @@ struct SettingsView: View {
         UserDefaults.standard.object(forKey: "minimalReport.showNetworkSpeed") as? Bool ?? true
     @State private var showIpInMenuBar: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showIpInMenuBar") as? Bool ?? true
+    @State private var clipboardHistoryEnabled: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.clipboardHistoryEnabled") as? Bool ?? true
+    @State private var clipboardSizeMBText: String = {
+        let raw = UserDefaults.standard.object(forKey: "minimalReport.clipboardHistorySizeMB") as? Int ?? 50
+        return "\(raw)"
+    }()
 
     private enum TestState: Equatable { case idle, testing, ok, failed(String) }
 
@@ -52,7 +58,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 470 : 410
+        provider == .openrouter ? 560 : 500
     }
 
     // MARK: - Title
@@ -195,6 +201,40 @@ struct SettingsView: View {
                 .toggleStyle(.checkbox)
             }
 
+            // Clipboard history
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $clipboardHistoryEnabled) {
+                    Text("Enable cmd+option+v for clipboard history")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            // Clipboard history size limit
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                HStack(spacing: 6) {
+                    Text("Max size")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.55))
+                    TextField("", text: $clipboardSizeMBText)
+                        .textFieldStyle(.plain)
+                        .font(.system(.callout, design: .monospaced))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 50)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(fieldBg)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    Text("MB")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.55))
+                }
+            }
+
             // Feedback / Support
             Divider().overlay(Color.white.opacity(0.08))
 
@@ -330,6 +370,12 @@ struct SettingsView: View {
         UserDefaults.standard.set(showIpInMenuBar, forKey: "minimalReport.showIpInMenuBar")
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.ipSettingChanged"), object: nil)
+        UserDefaults.standard.set(clipboardHistoryEnabled, forKey: "minimalReport.clipboardHistoryEnabled")
+        let sizeMB = max(1, Int(clipboardSizeMBText.trimmingCharacters(in: .whitespaces)) ?? 50)
+        UserDefaults.standard.set(sizeMB, forKey: "minimalReport.clipboardHistorySizeMB")
+        clipboardSizeMBText = "\(sizeMB)"
+        NotificationCenter.default.post(
+            name: NSNotification.Name("minimalReport.clipboardHistorySettingChanged"), object: nil)
         onDone()
     }
 

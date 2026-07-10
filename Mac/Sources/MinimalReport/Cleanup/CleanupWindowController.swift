@@ -18,8 +18,13 @@ final class CleanupWindowController: NSWindowController, NSWindowDelegate {
         )
         window.title = "Disk Cleanup"
         window.isReleasedWhenClosed = false
-        window.center()
         window.appearance = NSAppearance(named: .darkAqua)
+        // Bound the window to the screen so it can't exceed the display, and
+        // ensure a sane default + minimum size. Content already scrolls.
+        WindowSizing.constrain(window,
+                               preferred: NSSize(width: 700, height: 540),
+                               minSize: NSSize(width: 680, height: 500))
+        window.center()
         self.init(window: window)
         window.delegate = self
     }

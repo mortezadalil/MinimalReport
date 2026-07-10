@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Combine
+import Carbon.HIToolbox
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -10,6 +11,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
     private var cleanupWindowController: CleanupWindowController?
     private var settingsWindowController: SettingsWindowController?
+
+    // Clipboard history
+    private let clipboardHistory = ClipboardHistoryManager()
+    private var hotkeyManager: GlobalHotkeyManager?
+    private var clipboardPanel: ClipboardHistoryPanel?
 
     /// How often IP + system stats are auto-refreshed.
     private static let pollInterval: UInt64 = 10_000_000_000 // 10s in nanoseconds
@@ -26,12 +32,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupPopover()
         observeState()
         startNetworkMonitor()
+        setupClipboardHistory()
         Task { await performRefresh() }
         startPolling()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         networkTimer?.invalidate()
+        clipboardHistory.stop()
+        hotkeyManager?.unregister()
     }
 
     // MARK: - Setup
@@ -87,6 +96,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static let networkSpeedKey = "minimalReport.showNetworkSpeed"
     private static let showIpKey = "minimalReport.showIpInMenuBar"
+    private static let clipboardHistoryEnabledKey = "minimalReport.clipboardHistoryEnabled"
+    private static let clipboardHistorySizeKey = "minimalReport.clipboardHistorySizeMB"
 
     private var networkSpeedEnabled: Bool {
         UserDefaults.standard.object(forKey: Self.networkSpeedKey) as? Bool ?? true
@@ -223,8 +234,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return image
     }
 
-    // MARK: - Refresh
+    // MARK: - Clipboard history
 
+    private func setupClipboardHistory() {
+        // Re-apply enable/size whenever Settings changes the toggles.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applyClipboardHistorySetting),
+            name: NSNotification.Name("minimalReport.clipboardHistorySettingChanged"),
+            object: nil
+        )
+        applyClipboardHistorySetting()
+    }
+
+    @objc private func applyClipboardHistorySetting() {
+        let enabled = clipboardHistoryEnabled
+
+        if enabled {
+            clipboardHistory.start()
+            if hotkeyManager == nil {
+                let mgr = GlobalHotkeyManager(keyCode: UInt32(kVK_ANSI_V),
+                                              modifiers: UInt32(cmdKey | optionKey))
+                mgr.onTrigger = { [weak self] in
+                    Task { @MainActor in self?.openClipboardHistory() }
+                }
+                mgr.register()
+                hotkeyManager = mgr
+            }
+        } else {
+            clipboardHistory.stop()
+            hotkeyManager?.unregister()
+            hotkeyManager = nil
+        }
+    }
+
+    private var clipboardHistoryEnabled: Bool {
+        UserDefaults.standard.object(forKey: Self.clipboardHistoryEnabledKey) as? Bool ?? true
+    }
+
+    @MainActor
+    private func openClipboardHistory() {
+        if clipboardPanel == nil {
+            clipboardPanel = ClipboardHistoryPanel(history: clipboardHistory)
+        }
+        clipboardPanel?.showNearCursor()
+    }
+
+    // MARK: - Refresh
     private func startPolling() {
         pollingTask = Task {
             while !Task.isCancelled {

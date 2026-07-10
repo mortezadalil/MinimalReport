@@ -81,7 +81,7 @@ struct PopoverView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 7)
-            .background(Color.white.opacity(0.09))
+            .background(Color.white.opacity(0.08))
             .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
@@ -97,8 +97,8 @@ struct PopoverView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 7)
-            .background(Color.white.opacity(0.06))
-            .foregroundColor(.white.opacity(0.9))
+            .background(Color.white.opacity(0.08))
+            .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -112,8 +112,8 @@ struct PopoverView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 7)
-            .background(Color.white.opacity(0.04))
-            .foregroundColor(.white.opacity(0.6))
+            .background(Color.white.opacity(0.08))
+            .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
