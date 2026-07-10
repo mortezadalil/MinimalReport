@@ -18,15 +18,24 @@ echo "▸ Building ${APP_NAME} ${VERSION}…"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${VERSION}" Resources/Info.plist
 
-# --- 2. Compile ---
-swift build -c release 2>&1 | grep -v "^Build complete"
+# --- 2. Compile (universal binary: arm64 + x86_64) ---
+echo "▸ Compiling arm64…"
+swift build -c release --arch arm64   2>&1 | grep -v "^Build complete"
+echo "▸ Compiling x86_64…"
+swift build -c release --arch x86_64  2>&1 | grep -v "^Build complete"
+echo "▸ Creating universal binary with lipo…"
+mkdir -p ".build/release-universal"
+lipo -create -output ".build/release-universal/${APP_NAME}" \
+    ".build/arm64-apple-macosx/release/${APP_NAME}" \
+    ".build/x86_64-apple-macosx/release/${APP_NAME}"
+echo "  ✓ Universal binary ready"
 
 # --- 3. Bundle .app ---
 pkill -x "${APP_NAME}" 2>/dev/null || true
 rm -rf "${APP_NAME}.app"
 mkdir -p "${APP_NAME}.app/Contents/MacOS"
 mkdir -p "${APP_NAME}.app/Contents/Resources"
-cp ".build/release/${APP_NAME}" "${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
+cp ".build/release-universal/${APP_NAME}" "${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
 cp Resources/Info.plist "${APP_NAME}.app/Contents/Info.plist"
 cp Resources/AppIcon.icns "${APP_NAME}.app/Contents/Resources/AppIcon.icns"
 echo "  ✓ App bundle created"

@@ -13,6 +13,7 @@ struct PopoverView: View {
             statRow(label: "IP", value: "\(appState.countryFlag)  \(appState.ipAddress)")
             statRow(label: "Disk", value: appState.diskDisplay)
             statRow(label: "RAM", value: appState.ramDisplay)
+            netRow
             Spacer(minLength: 8)
             refreshButton
             cleanupButton
@@ -20,7 +21,7 @@ struct PopoverView: View {
             footerRow
         }
         .padding(20)
-        .frame(width: 280, height: 340)
+        .frame(width: 280, height: 365)
         .background(Color(red: 0.10, green: 0.10, blue: 0.12))
     }
 
@@ -42,6 +43,29 @@ struct PopoverView: View {
         Rectangle()
             .fill(Color.white.opacity(0.12))
             .frame(height: 1)
+    }
+
+    private var netRow: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Text("Net")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.45))
+                .frame(width: 32, alignment: .leading)
+            HStack(spacing: 6) {
+                Text("↓")
+                    .font(.system(.caption, design: .monospaced).bold())
+                    .foregroundColor(Color(red: 0.2, green: 0.85, blue: 0.45))
+                Text(appState.downloadSpeedDisplay)
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundColor(.white)
+                Text("↑")
+                    .font(.system(.caption, design: .monospaced).bold())
+                    .foregroundColor(Color(red: 1.0, green: 0.80, blue: 0.1))
+                Text(appState.uploadSpeedDisplay)
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+        }
     }
 
     private var refreshButton: some View {

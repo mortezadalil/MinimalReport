@@ -11,6 +11,8 @@ class AppState: ObservableObject {
     @Published var isRefreshing: Bool = false
     @Published var lastUpdated: Date? = nil
     @Published var updateStatus: UpdateStatus = .idle
+    @Published var downloadBps: Double = 0
+    @Published var uploadBps: Double = 0
 
     var menuBarTitle: String { "\(countryFlag) \(ipAddress)" }
 
@@ -28,6 +30,20 @@ class AppState: ObservableObject {
         ipAddress = address
         countryFlag = countryCode.flatMap(flagEmoji) ?? "🏳"
         lastUpdated = Date()
+    }
+
+    func updateNetworkSpeed(download: Double, upload: Double) {
+        downloadBps = download
+        uploadBps = upload
+    }
+
+    var downloadSpeedDisplay: String { formatSpeed(downloadBps) }
+    var uploadSpeedDisplay: String { formatSpeed(uploadBps) }
+
+    private func formatSpeed(_ bps: Double) -> String {
+        if bps < 1024 { return "0 KB/s" }
+        if bps < 1_048_576 { return String(format: "%.0f KB/s", bps / 1024) }
+        return String(format: "%.1f MB/s", bps / 1_048_576)
     }
 
     func updateSystemStats(diskTotal: Int64, diskAvailable: Int64,
