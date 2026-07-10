@@ -57,11 +57,13 @@ Network speed is measured by reading `getifaddrs` byte counters on all `en*`/`et
 | | |
 |---|---|
 | **Win+V for macOS** | Press **⌘⌥V** (Cmd+Option+V) anywhere to open a popup of your last 100 clipboard items — text and images |
-| **Pick to paste** | Click any item to paste it into the focused field (auto-paste needs Accessibility permission; falls back to copy-only) |
+| **Pick to paste** | Click any item to paste it at the cursor in the focused field; the panel closes automatically (auto-paste needs Accessibility permission; falls back to copy-only) |
+| **Image hover preview** | Hover an image entry to see the full picture in a preview modal — it dismisses when the pointer leaves the thumbnail |
+| **Right-sized panel** | Opens at a comfortable ~5-row size with the app icon and a "Minimal Report Clipboard History" title, and never shrinks into a tiny window (minimum width & height) |
 | **Configurable** | Toggle the feature and set a max storage size (default 50 MB) in Settings |
 | **In-memory only** | History lives only while the app runs — nothing is written to disk |
 
-The history is captured by polling `NSPasteboard.general.changeCount` once per second; the global hotkey is registered via the Carbon Event Hot Key API.
+The history is captured by polling `NSPasteboard.general.changeCount` once per second; the global hotkey is registered via the Carbon Event Hot Key API. Selecting an item writes it back through the manager (keeping the change-count in sync so it isn't re-captured as a duplicate), restores the previously focused app, and synthesizes ⌘V via `CGEvent`. The app is **ad-hoc code-signed** so the Accessibility grant attaches to a stable identity.
 
 ---
 
@@ -168,6 +170,8 @@ AI response windows open as **independent, draggable NSWindows** — move them a
 | **Model** | Free-text with popular model suggestions for OpenRouter |
 | **Test Connection** | Pings the API and shows ✓ / ✗ instantly |
 | **Launch at Login** | Registers with `SMAppService` (macOS 13 native API, Touch ID-compatible) |
+| **Show network speed / IP in menu bar** | Toggle each menu-bar indicator on or off |
+| **Clipboard history** | Enable **⌘⌥V** clipboard history and set its max storage size (MB) |
 | **Quit** | Cleanly exits the LSUIElement app (no dock icon = no other way to quit) |
 
 **Supported AI providers:**
