@@ -186,6 +186,7 @@ struct TopProcessesView: View {
     @State private var loading = true
     @State private var todayDown: Int64 = 0
     @State private var todayUp: Int64 = 0
+    @State private var autoRefresh = true
 
     private let bg = Color(red: 0.12, green: 0.12, blue: 0.14)
 
@@ -197,16 +198,49 @@ struct TopProcessesView: View {
             header
             Divider().overlay(Color.white.opacity(0.12))
             content
+            if kind == .network && !autoRefresh {
+                Divider().overlay(Color.white.opacity(0.08))
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle").font(.system(size: 10))
+                    Text("Network monitoring paused — press ▶ to resume.")
+                        .font(.system(size: 10))
+                    Spacer()
+                }
+                .foregroundColor(.white.opacity(0.45))
+                .padding(.horizontal, 14).padding(.vertical, 8)
+            }
         }
         .frame(width: 340)
         .background(bg)
         .onHover { onHover($0) }
-        .task { await reload() }
+        .task {
+            await load(initial: true)
+            // The network card refreshes ~once per second until the user stops it.
+            guard kind == .network else { return }
+            while !Task.isCancelled {
+                if autoRefresh {
+                    await load(initial: false)
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                } else {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                }
+            }
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
+                // Stop / resume the per-second network refresh (network card only).
+                if kind == .network {
+                    Button { autoRefresh.toggle() } label: {
+                        Image(systemName: autoRefresh ? "stop.circle.fill" : "play.circle.fill")
+                            .foregroundColor(autoRefresh ? Color(red: 1.0, green: 0.42, blue: 0.42)
+                                                         : Color(red: 0.2, green: 0.85, blue: 0.45))
+                    }
+                    .buttonStyle(.plain)
+                    .help(autoRefresh ? "Stop network monitoring" : "Resume network monitoring")
+                }
                 Image(systemName: icon).foregroundColor(.accentColor)
                 Text(title).font(.subheadline.weight(.semibold)).foregroundColor(.white)
                 Spacer()
@@ -303,7 +337,7 @@ struct TopProcessesView: View {
                 let force = NSEvent.modifierFlags.contains(.option)
                 TopProcesses.terminate(pid: row.pid, force: force)
                 rows.removeAll { $0.id == row.id }          // optimistic
-                Task { try? await Task.sleep(nanoseconds: 500_000_000); await reload() }
+                Task { try? await Task.sleep(nanoseconds: 500_000_000); await load(initial: false) }
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 12))
@@ -316,7 +350,8 @@ struct TopProcessesView: View {
         .padding(.vertical, 6)
     }
 
-    private func reload() async {
+    private func load(initial: Bool) async {
+        if initial { loading = true }
         if kind == .network {
             let totals = TopProcesses.todayNetTotals()
             todayDown = totals.down
