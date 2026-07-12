@@ -43,10 +43,13 @@ Menu bar:   ↓ 12.4 KB/s ████  🇮🇷  1.2.3.4
 | **Real-time network speed** | Download ↓ (green) and upload ↑ (yellow) shown directly in the menu bar — two stacked rows with KB/s or MB/s label and a 5-bar animated waveform, updated every second |
 | **Disk usage** | Free and total capacity, refreshed on demand |
 | **RAM usage** | Free + inactive memory via Mach kernel call |
+| **Top-process hover cards** | Hover the **RAM** or **Net** row to see the top 20 processes for that resource, high → low, in a modern card — with a per-process ✕ to **quit or force-quit** (hold ⌥). The Net card also shows **today's total download/upload** |
 | **Auto-refresh** | Polls every 10 seconds in the background |
 | **Menu bar only** | `LSUIElement = YES` — zero dock presence |
 
 Three IP services fire simultaneously in a Swift `TaskGroup`; the fastest win is shown and the rest are cancelled. Country codes are converted to emoji flags via Unicode Regional Indicator scalars — no image assets needed.
+
+Top memory is read from `ps`; per-process network throughput is derived from two `nettop` samples ~0.8s apart. Today's network total is tracked from a daily baseline of the interface byte counters.
 
 Network speed is measured by reading `getifaddrs` byte counters on all `en*`/`eth*` interfaces every second, computing the delta, and normalising to a log₁₀ scale so both idle (< 10 KB/s) and heavy (> 10 MB/s) traffic are clearly visible in the waveform.
 
@@ -107,6 +110,20 @@ Lists and uninstalls packages from every package manager on your Mac, with real 
 Rustup shims (`cargo`, `rustc`, `rustup`, etc.) are detected and marked **non-deletable** automatically.
 
 > ⚠️ **Deletions are permanent** — items are not moved to Trash. A confirmation dialog always appears before anything is removed.
+
+---
+
+### 🧠 Memory Cleanup
+
+An honest take on freeing RAM on macOS.
+
+| | |
+|---|---|
+| **Free Inactive Memory** | Runs the built-in `purge` command (with an admin prompt) to flush disk caches and release inactive memory, then reports how much was freed |
+| **Biggest memory users** | Lists the top 20 processes by memory with a per-process ✕ to **quit or force-quit** (hold ⌥) — the genuinely effective way to reclaim RAM |
+| **Refresh** | Re-reads free memory on demand |
+
+The window is upfront that macOS manages memory automatically (compression + caching), so `purge` is mostly cosmetic — especially on Apple Silicon — and quitting heavy apps is what actually helps. `purge` requires root, so it runs via the same native admin prompt as Disk Cleanup.
 
 ---
 

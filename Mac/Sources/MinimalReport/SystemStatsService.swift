@@ -25,6 +25,27 @@ enum SystemStatsService {
         return (total, avail)
     }
 
+    /// Truly-free memory (free + speculative pages) in bytes. Rises after a
+    /// `purge`, so it's the metric used to report how much was freed.
+    static func freeMemory() -> Int64 {
+        guard let vm = vmStats() else { return 0 }
+        let pageSize = Int64(vm_page_size)
+        return (Int64(vm.free_count) + Int64(vm.speculative_count)) * pageSize
+    }
+
+    private static func vmStats() -> vm_statistics64? {
+        var vmStats = vm_statistics64()
+        var count = mach_msg_type_number_t(
+            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size
+        )
+        let ret = withUnsafeMutablePointer(to: &vmStats) { ptr in
+            ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+            }
+        }
+        return ret == KERN_SUCCESS ? vmStats : nil
+    }
+
     private static func ramStats() -> (Int64, Int64) {
         let total = Int64(ProcessInfo.processInfo.physicalMemory)
 

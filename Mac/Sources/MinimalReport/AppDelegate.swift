@@ -11,6 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
     private var cleanupWindowController: CleanupWindowController?
     private var settingsWindowController: SettingsWindowController?
+    private var memoryCleanupWindowController: MemoryCleanupWindowController?
 
     // Clipboard history
     private let clipboardHistory = ClipboardHistoryManager()
@@ -57,7 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupPopover() {
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 280, height: 365)
+        popover.contentSize = NSSize(width: 280, height: 415)
         popover.behavior = .transient
         popover.appearance = NSAppearance(named: .darkAqua)
         popover.contentViewController = NSHostingController(
@@ -65,6 +66,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 appState: appState,
                 onRefresh: { [weak self] in Task { await self?.performRefresh() } },
                 onOpenCleanup: { [weak self] in Task { @MainActor in self?.openCleanup() } },
+                onOpenMemoryCleanup: { [weak self] in Task { @MainActor in self?.openMemoryCleanup() } },
                 onOpenSettings: { [weak self] in Task { @MainActor in self?.openSettings() } }
             )
         )
@@ -326,6 +328,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             cleanupWindowController = wc
         }
         cleanupWindowController?.showFocused()
+    }
+
+    // MARK: - Memory Cleanup window
+
+    @MainActor
+    private func openMemoryCleanup() {
+        popover.performClose(nil)
+        if memoryCleanupWindowController == nil {
+            let wc = MemoryCleanupWindowController()
+            wc.onClose = { [weak self] in self?.memoryCleanupWindowController = nil }
+            memoryCleanupWindowController = wc
+        }
+        memoryCleanupWindowController?.showFocused()
     }
 
     // MARK: - Settings window

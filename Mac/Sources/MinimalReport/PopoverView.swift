@@ -5,7 +5,49 @@ struct PopoverView: View {
     @ObservedObject var appState: AppState
     let onRefresh: () -> Void
     let onOpenCleanup: () -> Void
+    let onOpenMemoryCleanup: () -> Void
     let onOpenSettings: () -> Void
+
+    /// Which stat row is hovered (drives the top-processes modal).
+    private enum HoverRow { case ram, net }
+    @State private var hoveredRow: HoverRow?
+    @State private var closeWork: DispatchWorkItem?
+
+    /// Hover on the stat row itself.
+    private func setHover(_ row: HoverRow, _ inside: Bool) {
+        if inside {
+            cancelClose()
+            hoveredRow = row
+        } else {
+            scheduleClose()
+        }
+    }
+
+    /// Hover reported by the modal — keeps it open while the pointer is over it.
+    private func modalHover(_ inside: Bool) {
+        if inside { cancelClose() } else { scheduleClose() }
+    }
+
+    private func cancelClose() {
+        closeWork?.cancel()
+        closeWork = nil
+    }
+
+    /// Close after a short grace period so the pointer can travel from the row
+    /// onto the modal without it disappearing.
+    private func scheduleClose() {
+        closeWork?.cancel()
+        let work = DispatchWorkItem { hoveredRow = nil }
+        closeWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+    }
+
+    private func hoverBinding(_ row: HoverRow) -> Binding<Bool> {
+        Binding(
+            get: { hoveredRow == row },
+            set: { if !$0, hoveredRow == row { hoveredRow = nil } }
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -14,15 +56,26 @@ struct PopoverView: View {
             statRow(label: "IP", value: "\(appState.countryFlag)  \(appState.ipAddress)")
             statRow(label: "Disk", value: appState.diskDisplay)
             statRow(label: "RAM", value: appState.ramDisplay)
+                .contentShape(Rectangle())
+                .onHover { inside in setHover(.ram, inside) }
+                .popover(isPresented: hoverBinding(.ram), arrowEdge: .trailing) {
+                    TopProcessesView(kind: .memory, onHover: modalHover)
+                }
             netRow
+                .contentShape(Rectangle())
+                .onHover { inside in setHover(.net, inside) }
+                .popover(isPresented: hoverBinding(.net), arrowEdge: .trailing) {
+                    TopProcessesView(kind: .network, onHover: modalHover)
+                }
             Spacer(minLength: 8)
             refreshButton
             cleanupButton
+            memoryCleanupButton
             settingsButton
             footerRow
         }
         .padding(20)
-        .frame(width: 280, height: 365)
+        .frame(width: 280, height: 415)
         .background(Color(red: 0.10, green: 0.10, blue: 0.12))
     }
 
@@ -98,6 +151,21 @@ struct PopoverView: View {
             HStack(spacing: 6) {
                 Image(systemName: "trash")
                 Text("Disk Cleanup")
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background(Color.white.opacity(0.08))
+            .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var memoryCleanupButton: some View {
+        Button(action: onOpenMemoryCleanup) {
+            HStack(spacing: 6) {
+                Image(systemName: "memorychip")
+                Text("Memory Cleanup")
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 7)
