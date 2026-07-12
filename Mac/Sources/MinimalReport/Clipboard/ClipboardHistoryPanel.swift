@@ -43,6 +43,7 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
             rootView: ClipboardHistoryView(
                 history: history,
                 onSelect: { [weak self] item in self?.handleSelect(item) },
+                onTogglePin: { [weak history] item in history?.togglePin(item) },
                 onClear: { [weak history] in history?.clear() },
                 onClose: { [weak self] in self?.close() }
             )
@@ -141,6 +142,7 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
 private struct ClipboardHistoryView: View {
     @ObservedObject var history: ClipboardHistoryManager
     let onSelect: (ClipboardItem) -> Void
+    let onTogglePin: (ClipboardItem) -> Void
     let onClear: () -> Void
     let onClose: () -> Void
 
@@ -211,7 +213,7 @@ private struct ClipboardHistoryView: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(history.items) { item in
+                    ForEach(history.displayItems) { item in
                         row(item)
                         Divider().overlay(Color.white.opacity(0.05))
                     }
@@ -221,32 +223,43 @@ private struct ClipboardHistoryView: View {
     }
 
     private func row(_ item: ClipboardItem) -> some View {
-        Button { onSelect(item) } label: {
-            HStack(spacing: 10) {
-                thumbnail(item)
-                    .frame(width: 30, height: 30)
+        HStack(spacing: 10) {
+            thumbnail(item)
+                .frame(width: 30, height: 30)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.preview)
-                        .font(.callout)
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Text(item.timestamp, style: .time)
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.35))
-                }
-
-                Spacer()
-                Image(systemName: "arrow.down.to.line")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.preview)
+                    .font(.callout)
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Text(item.timestamp, style: .time)
                     .font(.caption2)
-                    .foregroundColor(.white.opacity(0.25))
+                    .foregroundColor(.white.opacity(0.35))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
+
+            Spacer()
+
+            // Pin toggle — its own button so it doesn't trigger a paste.
+            Button { onTogglePin(item) } label: {
+                Image(systemName: item.isPinned ? "pin.fill" : "pin")
+                    .font(.system(size: 12))
+                    .foregroundColor(item.isPinned ? .accentColor : .white.opacity(0.35))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(item.isPinned ? "Unpin" : "Pin")
+
+            Image(systemName: "arrow.down.to.line")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.25))
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        // Tapping anywhere else on the row pastes the item.
+        .onTapGesture { onSelect(item) }
     }
 
     @ViewBuilder

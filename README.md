@@ -58,6 +58,7 @@ Network speed is measured by reading `getifaddrs` byte counters on all `en*`/`et
 |---|---|
 | **Win+V for macOS** | Press **⌘⌥V** (Cmd+Option+V) anywhere to open a popup of your last 100 clipboard items — text and images |
 | **Pick to paste** | Click any item to paste it at the cursor in the focused field; the panel closes automatically (auto-paste needs Accessibility permission; falls back to copy-only) |
+| **Pin items** | Pin any entry to keep it at the top; pinned items are never evicted and **persist across quit and system restart** (saved to `~/Library/Application Support/MinimalReport/pins.json`) |
 | **Image hover preview** | Hover an image entry to see the full picture in a preview modal — it dismisses when the pointer leaves the thumbnail |
 | **Right-sized panel** | Opens at a comfortable ~5-row size with the app icon and a "Minimal Report Clipboard History" title, and never shrinks into a tiny window (minimum width & height) |
 | **Configurable** | Toggle the feature and set a max storage size (default 50 MB) in Settings |

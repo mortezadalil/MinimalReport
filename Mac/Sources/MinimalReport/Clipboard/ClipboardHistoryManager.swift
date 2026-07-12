@@ -9,6 +9,7 @@ struct ClipboardItem: Identifiable {
     let text: String?          // non-nil when kind == .text
     let image: NSImage?        // non-nil when kind == .image
     let approxBytes: Int       // rough footprint, used for the size budget
+    var isPinned: Bool = false  // pinned items stay on top and persist to disk
 
     enum Kind { case text, image }
 
@@ -47,6 +48,15 @@ final class ClipboardHistoryManager: ObservableObject {
 
     init() {
         lastChangeCount = NSPasteboard.general.changeCount
+        // Restore pinned items saved on disk so they survive quit / restart.
+        items = loadPins()
+    }
+
+    // MARK: - Display
+
+    /// Items shown in the panel: pinned first (persisted), then recent history.
+    var displayItems: [ClipboardItem] {
+        items.filter { $0.isPinned } + items.filter { !$0.isPinned }
     }
 
     // MARK: - Lifecycle
@@ -134,16 +144,22 @@ final class ClipboardHistoryManager: ObservableObject {
     }
 
     private func enforceLimits() {
-        // Count cap.
-        if items.count > Self.maxCount {
-            items = Array(items.prefix(Self.maxCount))
+        // Pinned items are never evicted and never count against the caps.
+        let pinned = items.filter { $0.isPinned }
+        var unpinned = items.filter { !$0.isPinned }
+
+        // Count cap (unpinned only).
+        if unpinned.count > Self.maxCount {
+            unpinned = Array(unpinned.prefix(Self.maxCount))
         }
-        // Size cap — drop oldest (end of array) until within budget.
-        var bytes = items.reduce(0) { $0 + $1.approxBytes }
-        while bytes > sizeLimitBytes && items.count > 1 {
-            let removed = items.removeLast()
+        // Size cap — drop oldest unpinned (end of array) until within budget.
+        var bytes = unpinned.reduce(0) { $0 + $1.approxBytes }
+        while bytes > sizeLimitBytes && unpinned.count > 1 {
+            let removed = unpinned.removeLast()
             bytes -= removed.approxBytes
         }
+
+        items = pinned + unpinned
     }
 
     private func sameContent(_ a: ClipboardItem, _ b: ClipboardItem) -> Bool {
@@ -162,7 +178,72 @@ final class ClipboardHistoryManager: ObservableObject {
         lastChangeCount = PasteHelper.putOnPasteboard(item)
     }
 
+    /// Clears the recent history but keeps pinned items.
     func clear() {
-        items.removeAll()
+        items.removeAll { !$0.isPinned }
+    }
+
+    /// Toggles the pinned state of an item, re-sorts, and persists the pins.
+    func togglePin(_ item: ClipboardItem) {
+        guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
+        items[idx].isPinned.toggle()
+        // Re-sort so pinned float to the top, then persist.
+        items = items.filter { $0.isPinned } + items.filter { !$0.isPinned }
+        savePins()
+    }
+
+    // MARK: - Pin persistence (survives quit / restart)
+
+    /// On-disk representation of a pinned item.
+    private struct PinnedDTO: Codable {
+        let timestamp: Date
+        let kind: String        // "text" | "image"
+        let text: String?
+        let imagePNG: Data?
+    }
+
+    private var pinsURL: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory,
+                                            in: .userDomainMask).first!
+        let dir = base.appendingPathComponent("MinimalReport", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("pins.json")
+    }
+
+    private func savePins() {
+        let dtos: [PinnedDTO] = items.filter { $0.isPinned }.map { item in
+            PinnedDTO(
+                timestamp: item.timestamp,
+                kind: item.kind == .text ? "text" : "image",
+                text: item.text,
+                imagePNG: item.kind == .image ? item.image.flatMap(Self.pngData) : nil
+            )
+        }
+        if let data = try? JSONEncoder().encode(dtos) {
+            try? data.write(to: pinsURL, options: .atomic)
+        }
+    }
+
+    private func loadPins() -> [ClipboardItem] {
+        guard let data = try? Data(contentsOf: pinsURL),
+              let dtos = try? JSONDecoder().decode([PinnedDTO].self, from: data) else {
+            return []
+        }
+        return dtos.compactMap { dto in
+            if dto.kind == "text", let t = dto.text {
+                return ClipboardItem(timestamp: dto.timestamp, kind: .text, text: t,
+                                     image: nil, approxBytes: t.utf8.count, isPinned: true)
+            } else if dto.kind == "image", let d = dto.imagePNG, let img = NSImage(data: d) {
+                return ClipboardItem(timestamp: dto.timestamp, kind: .image, text: nil,
+                                     image: img, approxBytes: d.count, isPinned: true)
+            }
+            return nil
+        }
+    }
+
+    private static func pngData(from image: NSImage) -> Data? {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff) else { return nil }
+        return rep.representation(using: .png, properties: [:])
     }
 }
