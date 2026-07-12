@@ -261,7 +261,8 @@ struct TopProcessesView: View {
                 }
                 .padding(.vertical, 4)
             }
-            .frame(maxHeight: 440)
+            // Default height ≈ 10 rows; the remaining items scroll.
+            .frame(height: 360)
         }
     }
 
