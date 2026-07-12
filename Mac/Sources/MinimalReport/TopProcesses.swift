@@ -198,12 +198,14 @@ struct TopProcessesView: View {
             header
             Divider().overlay(Color.white.opacity(0.12))
             content
-            if kind == .network && !autoRefresh {
+            if kind == .network {
                 Divider().overlay(Color.white.opacity(0.08))
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: "info.circle").font(.system(size: 10))
-                    Text("Network monitoring paused — press ▶ to resume.")
+                    Text("Network monitoring refreshes every second —")
                         .font(.system(size: 10))
+                    Text(autoRefresh ? "running" : "stopped")
+                        .font(.system(size: 10, weight: .semibold))
                     Spacer()
                 }
                 .foregroundColor(.white.opacity(0.45))
@@ -231,19 +233,20 @@ struct TopProcessesView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
-                // Stop / resume the per-second network refresh (network card only).
+                Image(systemName: icon).foregroundColor(.accentColor)
+                Text(title).font(.subheadline.weight(.semibold)).foregroundColor(.white)
+                Spacer()
+                // Stop / resume the per-second network refresh — top-right corner,
+                // simple colorless refresh-style icon.
                 if kind == .network {
                     Button { autoRefresh.toggle() } label: {
-                        Image(systemName: autoRefresh ? "stop.circle.fill" : "play.circle.fill")
-                            .foregroundColor(autoRefresh ? Color(red: 1.0, green: 0.42, blue: 0.42)
-                                                         : Color(red: 0.2, green: 0.85, blue: 0.45))
+                        Image(systemName: autoRefresh ? "arrow.clockwise" : "arrow.clockwise.circle")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
                     }
                     .buttonStyle(.plain)
                     .help(autoRefresh ? "Stop network monitoring" : "Resume network monitoring")
                 }
-                Image(systemName: icon).foregroundColor(.accentColor)
-                Text(title).font(.subheadline.weight(.semibold)).foregroundColor(.white)
-                Spacer()
             }
             // Today's totals — only for the network modal.
             if kind == .network {
