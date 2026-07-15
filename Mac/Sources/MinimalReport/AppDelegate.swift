@@ -109,6 +109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private static let networkSpeedKey = "minimalReport.showNetworkSpeed"
     private static let cpuMemoryKey = "minimalReport.showCPUMemoryInMenuBar"
     private static let menuBarWaveformsKey = "minimalReport.showMenuBarWaveforms"
+    private static let menuBarColorsKey = "minimalReport.showMenuBarColors"
     private static let showIpKey = "minimalReport.showIpInMenuBar"
     private static let showIpFlagKey = "minimalReport.showIpFlagInMenuBar"
     private static let clipboardHistoryEnabledKey = "minimalReport.clipboardHistoryEnabled"
@@ -124,6 +125,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var menuBarWaveformsEnabled: Bool {
         UserDefaults.standard.object(forKey: Self.menuBarWaveformsKey) as? Bool ?? true
+    }
+
+    private var menuBarColorsEnabled: Bool {
+        UserDefaults.standard.object(forKey: Self.menuBarColorsKey) as? Bool ?? true
     }
 
     private func startMenuBarMonitor() {
@@ -143,6 +148,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(applyMenuBarVisibility),
             name: NSNotification.Name("minimalReport.menuBarWaveformsSettingChanged"),
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applyMenuBarVisibility),
+            name: NSNotification.Name("minimalReport.menuBarColorsSettingChanged"),
             object: nil
         )
         prevCounters = NetworkSpeedService.readCounters()
@@ -213,17 +224,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 memoryPercent: appState.memoryUsagePercent,
                 cpuSamples: cpuSamples,
                 memSamples: memSamples,
-                showBars: menuBarWaveformsEnabled))
+                showBars: menuBarWaveformsEnabled,
+                colored: menuBarColorsEnabled))
         }
 
         if networkSpeedEnabled {
             parts.append(Self.makeNetworkImage(
                 downBps: lastDownBps, upBps: lastUpBps,
                 downSamples: downSamples, upSamples: upSamples,
-                showBars: menuBarWaveformsEnabled))
+                showBars: menuBarWaveformsEnabled,
+                colored: menuBarColorsEnabled))
         }
 
-        statusItem.button?.image = parts.isEmpty ? nil : Self.compositeHorizontally(parts, gap: 6)
+        statusItem.button?.image = parts.isEmpty
+            ? nil
+            : Self.compositeHorizontally(parts, gap: 6, template: !menuBarColorsEnabled)
     }
 
     private static let menuBarFont = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .medium)
@@ -268,9 +283,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         text.draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
     }
 
-    private static func compositeHorizontally(_ images: [NSImage], gap: CGFloat) -> NSImage {
+    private static func compositeHorizontally(_ images: [NSImage], gap: CGFloat, template: Bool) -> NSImage {
         guard !images.isEmpty else { return NSImage() }
-        if images.count == 1 { return images[0] }
+        if images.count == 1 {
+            images[0].isTemplate = template
+            return images[0]
+        }
 
         let totalW = images.reduce(CGFloat(0)) { $0 + $1.size.width }
                   + gap * CGFloat(images.count - 1)
@@ -286,14 +304,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return true
         }
-        composite.isTemplate = false
+        composite.isTemplate = template
         return composite
+    }
+
+    private static func menuBarInkColor(colored: Bool, accent: NSColor) -> NSColor {
+        colored ? accent : .black
     }
 
     private static func makeCPUMemoryImage(
         cpuPercent: Double, memoryPercent: Double,
         cpuSamples: [Double], memSamples: [Double],
-        showBars: Bool
+        showBars: Bool,
+        colored: Bool
     ) -> NSImage {
         let rowH: CGFloat  = 11
         let imgH: CGFloat  = rowH * 2
@@ -303,8 +326,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let barsW = CGFloat(n) * barW + CGFloat(n - 1) * barGap
         let textGap: CGFloat = 4
 
-        let cpuColor = NSColor(red: 0.25, green: 0.75, blue: 1.0, alpha: 1.0)
-        let memColor = NSColor(red: 0.75, green: 0.45, blue: 1.0, alpha: 1.0)
+        let cpuColor = menuBarInkColor(colored: colored,
+                                       accent: NSColor(red: 0.25, green: 0.75, blue: 1.0, alpha: 1.0))
+        let memColor = menuBarInkColor(colored: colored,
+                                       accent: NSColor(red: 0.75, green: 0.45, blue: 1.0, alpha: 1.0))
 
         let cpuText = formatPercentShort(cpuPercent) as NSString
         let memText = formatPercentShort(memoryPercent) as NSString
@@ -350,14 +375,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             return true
         }
-        image.isTemplate = false
+        image.isTemplate = !colored
         return image
     }
 
     private static func makeNetworkImage(
         downBps: Double, upBps: Double,
         downSamples: [Double], upSamples: [Double],
-        showBars: Bool
+        showBars: Bool,
+        colored: Bool
     ) -> NSImage {
         let rowH: CGFloat  = 11      // height of each speed row
         let imgH: CGFloat  = rowH * 2
@@ -367,8 +393,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let barsW = CGFloat(n) * barW + CGFloat(n - 1) * barGap   // 19pt
         let textGap: CGFloat = 4
 
-        let greenColor  = NSColor(red: 0.2,  green: 0.85, blue: 0.45, alpha: 1.0)
-        let yellowColor = NSColor(red: 1.0,  green: 0.80, blue: 0.1,  alpha: 1.0)
+        let greenColor  = menuBarInkColor(colored: colored,
+                                          accent: NSColor(red: 0.2, green: 0.85, blue: 0.45, alpha: 1.0))
+        let yellowColor = menuBarInkColor(colored: colored,
+                                          accent: NSColor(red: 1.0, green: 0.80, blue: 0.1, alpha: 1.0))
 
         let downText = formatSpeedShort(downBps) as NSString
         let upText   = formatSpeedShort(upBps)   as NSString
@@ -414,7 +442,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             return true
         }
-        image.isTemplate = false
+        image.isTemplate = !colored
         return image
     }
 

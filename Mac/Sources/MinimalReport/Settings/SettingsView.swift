@@ -26,6 +26,8 @@ struct SettingsView: View {
         UserDefaults.standard.object(forKey: "minimalReport.showCPUMemoryInMenuBar") as? Bool ?? true
     @State private var showMenuBarWaveforms: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showMenuBarWaveforms") as? Bool ?? true
+    @State private var showMenuBarColors: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showMenuBarColors") as? Bool ?? true
     @State private var showIpInMenuBar: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showIpInMenuBar") as? Bool ?? true
     @State private var showIpFlagInMenuBar: Bool =
@@ -64,7 +66,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 640 : 580
+        provider == .openrouter ? 670 : 610
     }
 
     // MARK: - Title
@@ -212,6 +214,17 @@ struct SettingsView: View {
                 Spacer().frame(width: 60)
                 Toggle(isOn: $showMenuBarWaveforms) {
                     Text("Show activity bars in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            // Colored text in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showMenuBarColors) {
+                    Text("Use colored text in menu bar")
                         .font(.callout)
                         .foregroundColor(.white.opacity(0.85))
                 }
@@ -397,6 +410,9 @@ struct SettingsView: View {
         UserDefaults.standard.set(showMenuBarWaveforms, forKey: "minimalReport.showMenuBarWaveforms")
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.menuBarWaveformsSettingChanged"), object: nil)
+        UserDefaults.standard.set(showMenuBarColors, forKey: "minimalReport.showMenuBarColors")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("minimalReport.menuBarColorsSettingChanged"), object: nil)
         UserDefaults.standard.set(showIpInMenuBar, forKey: "minimalReport.showIpInMenuBar")
         UserDefaults.standard.set(showIpFlagInMenuBar, forKey: "minimalReport.showIpFlagInMenuBar")
         NotificationCenter.default.post(
