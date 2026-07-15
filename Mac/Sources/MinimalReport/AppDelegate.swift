@@ -21,25 +21,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// How often IP + system stats are auto-refreshed.
     private static let pollInterval: UInt64 = 10_000_000_000 // 10s in nanoseconds
 
-    // Network speed monitoring
+    // Menu bar metrics (network speed + CPU/memory)
     private var prevCounters: NetCounters = .zero
     private var prevCounterTime: Date = Date()
     private var downSamples: [Double] = Array(repeating: 0, count: 5)
     private var upSamples: [Double]   = Array(repeating: 0, count: 5)
-    private var networkTimer: Timer?
+    private var prevCPUSample: CPUSample?
+    private var cpuSamples: [Double] = Array(repeating: 0, count: 5)
+    private var memSamples: [Double] = Array(repeating: 0, count: 5)
+    private var lastDownBps: Double = 0
+    private var lastUpBps: Double = 0
+    private var menuBarTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
         setupPopover()
         observeState()
-        startNetworkMonitor()
+        startMenuBarMonitor()
         setupClipboardHistory()
         Task { await performRefresh() }
         startPolling()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        networkTimer?.invalidate()
+        menuBarTimer?.invalidate()
         clipboardHistory.stop()
         hotkeyManager?.unregister()
     }
@@ -94,9 +99,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.title = showIp ? "\(flag) \(ip)" : flag
     }
 
-    // MARK: - Network speed
+    // MARK: - Menu bar metrics
 
     private static let networkSpeedKey = "minimalReport.showNetworkSpeed"
+    private static let cpuMemoryKey = "minimalReport.showCPUMemoryInMenuBar"
     private static let showIpKey = "minimalReport.showIpInMenuBar"
     private static let clipboardHistoryEnabledKey = "minimalReport.clipboardHistoryEnabled"
     private static let clipboardHistorySizeKey = "minimalReport.clipboardHistorySizeMB"
@@ -105,32 +111,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.object(forKey: Self.networkSpeedKey) as? Bool ?? true
     }
 
-    private func startNetworkMonitor() {
+    private var cpuMemoryEnabled: Bool {
+        UserDefaults.standard.object(forKey: Self.cpuMemoryKey) as? Bool ?? true
+    }
+
+    private func startMenuBarMonitor() {
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(applyNetworkSpeedVisibility),
+            selector: #selector(applyMenuBarVisibility),
             name: NSNotification.Name("minimalReport.networkSpeedSettingChanged"),
             object: nil
         )
         prevCounters = NetworkSpeedService.readCounters()
         prevCounterTime = Date()
-        networkTimer = Timer.scheduledTimer(
+        prevCPUSample = CPUMemoryService.readCPUSample()
+        menuBarTimer = Timer.scheduledTimer(
             timeInterval: 1.0,
             target: self,
-            selector: #selector(tickNetworkSpeed),
+            selector: #selector(tickMenuBarMetrics),
             userInfo: nil,
             repeats: true
         )
-        RunLoop.main.add(networkTimer!, forMode: .common)
+        RunLoop.main.add(menuBarTimer!, forMode: .common)
     }
 
-    @objc private func applyNetworkSpeedVisibility() {
-        if !networkSpeedEnabled {
-            statusItem.button?.image = nil
-        }
+    @objc private func applyMenuBarVisibility() {
+        refreshMenuBarImage()
     }
 
-    @objc private func tickNetworkSpeed() {
+    @objc private func tickMenuBarMetrics() {
         let now = Date()
         let counters = NetworkSpeedService.readCounters()
         let dt = now.timeIntervalSince(prevCounterTime)
@@ -141,23 +150,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let upBytes = counters.bytesOut >= prevCounters.bytesOut
                 ? Double(counters.bytesOut - prevCounters.bytesOut) : 0
 
-            let downBps = downBytes / dt
-            let upBps   = upBytes   / dt
+            lastDownBps = downBytes / dt
+            lastUpBps   = upBytes   / dt
 
-            downSamples.removeFirst(); downSamples.append(Self.normalizeSpeed(downBps))
-            upSamples.removeFirst();   upSamples.append(Self.normalizeSpeed(upBps))
+            downSamples.removeFirst(); downSamples.append(Self.normalizeSpeed(lastDownBps))
+            upSamples.removeFirst();   upSamples.append(Self.normalizeSpeed(lastUpBps))
 
-            appState.updateNetworkSpeed(download: downBps, upload: upBps)
-
-            if networkSpeedEnabled {
-                statusItem.button?.image = Self.makeNetworkImage(
-                    downBps: downBps, upBps: upBps,
-                    downSamples: downSamples, upSamples: upSamples)
-            }
+            appState.updateNetworkSpeed(download: lastDownBps, upload: lastUpBps)
         }
+
+        if let currentCPU = CPUMemoryService.readCPUSample() {
+            if let previousCPU = prevCPUSample {
+                let cpuPercent = CPUMemoryService.cpuUsagePercent(
+                    previous: previousCPU, current: currentCPU)
+                cpuSamples.removeFirst(); cpuSamples.append(cpuPercent / 100.0)
+                let memPercent = CPUMemoryService.memoryUsagePercent()
+                memSamples.removeFirst(); memSamples.append(memPercent / 100.0)
+                appState.updateCPUMemory(cpu: cpuPercent, memory: memPercent)
+            }
+            prevCPUSample = currentCPU
+        } else {
+            let memPercent = CPUMemoryService.memoryUsagePercent()
+            memSamples.removeFirst(); memSamples.append(memPercent / 100.0)
+            appState.updateCPUMemory(cpu: appState.cpuUsagePercent, memory: memPercent)
+        }
+
+        refreshMenuBarImage()
 
         prevCounters = counters
         prevCounterTime = now
+    }
+
+    private func refreshMenuBarImage() {
+        var parts: [NSImage] = []
+
+        if cpuMemoryEnabled {
+            parts.append(Self.makeCPUMemoryImage(
+                cpuPercent: appState.cpuUsagePercent,
+                memoryPercent: appState.memoryUsagePercent,
+                cpuSamples: cpuSamples,
+                memSamples: memSamples))
+        }
+
+        if networkSpeedEnabled {
+            parts.append(Self.makeNetworkImage(
+                downBps: lastDownBps, upBps: lastUpBps,
+                downSamples: downSamples, upSamples: upSamples))
+        }
+
+        statusItem.button?.image = parts.isEmpty ? nil : Self.compositeHorizontally(parts, gap: 6)
     }
 
     private static func normalizeSpeed(_ bps: Double) -> Double {
@@ -170,6 +211,94 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if bps < 1024       { return "0 KB/s" }
         if bps < 1_048_576  { return String(format: "%.1f KB/s", bps / 1024) }
         return String(format: "%.1f MB/s", bps / 1_048_576)
+    }
+
+    private static func formatPercentShort(_ percent: Double) -> String {
+        String(format: "%.0f%%", percent)
+    }
+
+    private static func compositeHorizontally(_ images: [NSImage], gap: CGFloat) -> NSImage {
+        guard !images.isEmpty else { return NSImage() }
+        if images.count == 1 { return images[0] }
+
+        let totalW = images.reduce(CGFloat(0)) { $0 + $1.size.width }
+                  + gap * CGFloat(images.count - 1)
+        let maxH = images.map(\.size.height).max() ?? 0
+
+        let composite = NSImage(size: NSSize(width: totalW, height: maxH), flipped: false) { _ in
+            var x: CGFloat = 0
+            for image in images {
+                image.draw(at: NSPoint(x: x, y: (maxH - image.size.height) / 2),
+                           from: NSRect(origin: .zero, size: image.size),
+                           operation: .sourceOver, fraction: 1.0)
+                x += image.size.width + gap
+            }
+            return true
+        }
+        composite.isTemplate = false
+        return composite
+    }
+
+    private static func makeCPUMemoryImage(
+        cpuPercent: Double, memoryPercent: Double,
+        cpuSamples: [Double], memSamples: [Double]
+    ) -> NSImage {
+        let rowH: CGFloat  = 11
+        let imgH: CGFloat  = rowH * 2
+        let barW: CGFloat  = 3
+        let barGap: CGFloat = 1
+        let n = 5
+        let barsW = CGFloat(n) * barW + CGFloat(n - 1) * barGap
+        let textGap: CGFloat = 4
+
+        let cpuColor = NSColor(red: 0.25, green: 0.75, blue: 1.0, alpha: 1.0)
+        let memColor = NSColor(red: 0.75, green: 0.45, blue: 1.0, alpha: 1.0)
+
+        let font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .medium)
+        let cpuText = formatPercentShort(cpuPercent) as NSString
+        let memText = formatPercentShort(memoryPercent) as NSString
+
+        let cpuAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: cpuColor]
+        let memAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: memColor]
+
+        let textW = max(cpuText.size(withAttributes: cpuAttrs).width,
+                        memText.size(withAttributes: memAttrs).width)
+        let imgW = ceil(textW) + textGap + barsW
+
+        let image = NSImage(size: NSSize(width: imgW, height: imgH), flipped: false) { _ in
+            let cpuSz = cpuText.size(withAttributes: cpuAttrs)
+            cpuText.draw(at: NSPoint(x: 0, y: rowH + (rowH - cpuSz.height) / 2),
+                         withAttributes: cpuAttrs)
+
+            let barX = ceil(textW) + textGap
+            cpuColor.setFill()
+            for i in 0..<n {
+                let norm = CGFloat(i < cpuSamples.count ? cpuSamples[i] : 0)
+                let h = max(1.5, norm * (rowH - 1))
+                let x = barX + CGFloat(i) * (barW + barGap)
+                NSBezierPath(roundedRect: NSRect(x: x, y: rowH + (rowH - h) / 2,
+                                                  width: barW, height: h),
+                             xRadius: 0.5, yRadius: 0.5).fill()
+            }
+
+            let memSz = memText.size(withAttributes: memAttrs)
+            memText.draw(at: NSPoint(x: 0, y: (rowH - memSz.height) / 2),
+                         withAttributes: memAttrs)
+
+            memColor.setFill()
+            for i in 0..<n {
+                let norm = CGFloat(i < memSamples.count ? memSamples[i] : 0)
+                let h = max(1.5, norm * (rowH - 1))
+                let x = barX + CGFloat(i) * (barW + barGap)
+                NSBezierPath(roundedRect: NSRect(x: x, y: (rowH - h) / 2,
+                                                  width: barW, height: h),
+                             xRadius: 0.5, yRadius: 0.5).fill()
+            }
+
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 
     private static func makeNetworkImage(
