@@ -48,11 +48,14 @@ NSApp.setActivationPolicy(.accessory)
 
 ### Sources/MinimalReport/
 - **main.swift** — NSApplication bootstrap
-- **AppDelegate.swift** — status item, popover, polling loop (10s), window management
-- **AppState.swift** — ObservableObject holding IP, flag, disk, RAM, refresh state
-- **PopoverView.swift** — 280×300 dark SwiftUI popover with stats + Refresh + Disk Cleanup + Settings buttons
+- **AppDelegate.swift** — status item, popover, 10s polling, 1s menu bar metrics timer, composited menu bar images
+- **AppState.swift** — ObservableObject holding IP, flag, disk, RAM, CPU %, memory used %, network speed, refresh state
+- **PopoverView.swift** — 280×440 dark SwiftUI popover with stats + Refresh + Disk Cleanup + Settings buttons
 - **IPService.swift** — 3 concurrent APIs (ip-api.com, ipinfo.io, ipify.org), country code extraction
-- **SystemStatsService.swift** — FileManager for disk, `host_statistics64` Mach call for RAM
+- **SystemStatsService.swift** — FileManager for disk, shared `vmStats()` + `host_statistics64` for RAM
+- **CPUMemoryService.swift** — `host_processor_info` for CPU %, memory used % from shared VM stats
+- **NetworkSpeedService.swift** — `getifaddrs` byte counters for per-second network speed
+- **TopProcesses.swift** — top CPU / memory / network process hover cards in the popover
 
 ### Sources/MinimalReport/Cleanup/
 - **CleanupState.swift** — @MainActor state: items per category, sort order, selection, execution progress, AI queries
@@ -75,10 +78,18 @@ NSApp.setActivationPolicy(.accessory)
 - **MarkdownResponseView.swift** — modern report renderer: parses segments (headings, paragraphs, bullets, warning boxes, command cards); each command card has individual copy button; strips markdown symbols; renders inline bold/italic
 
 ### Sources/MinimalReport/Settings/
-- **SettingsView.swift** — API key + model fields per provider, Launch at Login checkbox (SMAppService), Test Connection button, Quit button
+- **SettingsView.swift** — API key + model fields per provider, Launch at Login checkbox (SMAppService), menu bar toggles (network, CPU/memory, IP), Test Connection button, Quit button
 - **SettingsWindowController.swift** — 440×360 draggable window for settings
 
 ## Architecture Decisions
+
+### Menu Bar Metrics Compositing
+- Single 1s `menuBarTimer` drives network speed, CPU %, and memory used %
+- `refreshMenuBarImage()` composites enabled widgets horizontally: `[CPU/MEM image][Network image]` then title (flag + IP) sits to the right
+- CPU/MEM image: two stacked rows (cyan CPU %, purple memory %), 5-bar animated waveform each — mirrors network widget layout
+- Network image: unchanged green/yellow download/upload rows
+- Toggles in UserDefaults: `minimalReport.showNetworkSpeed`, `minimalReport.showCPUMemoryInMenuBar`, `minimalReport.showIpInMenuBar`
+- Setting changes post `minimalReport.networkSpeedSettingChanged` or `minimalReport.cpuMemorySettingChanged` → `refreshMenuBarImage()`
 
 ### Swift 6 Tools + Swift 5 Language Mode
 Using `swift-tools-version: 6.0` with `.swiftLanguageMode(.v5)` avoids strict concurrency errors while using modern Swift Package API. Main classes do NOT carry `@MainActor`; instead, `MainActor.run()` wraps updates.
@@ -126,17 +137,17 @@ curl https://api.ipify.org?format=json
 
 ## Settings
 - Launch at Login: `SMAppService.mainApp.register()` / `.unregister()` (macOS 13+ native API)
-- Non-sensitive prefs (UserDefaults): `minimalReport.aiProvider`, `minimalReport.glmModel`, `minimalReport.openrouterModel`
+- Non-sensitive prefs (UserDefaults): `minimalReport.aiProvider`, `minimalReport.glmModel`, `minimalReport.openrouterModel`, `minimalReport.showNetworkSpeed`, `minimalReport.showCPUMemoryInMenuBar`, `minimalReport.showIpInMenuBar`
 - **API keys (Keychain, service `com.morteza.minimalreport`)**: accounts `glmApiKey`, `openrouterApiKey` — never written to UserDefaults or logs
 - On app quit: all in-flight windows close cleanly via `onClose` callbacks
 
 ## Styling
 - Dark theme: background `Color(red:0.10, green:0.10, blue:0.10)`
-- Popover/window size: 280×300 (popover), 700×540 (cleanup), 440×360 (settings), dynamic for AI query windows
+- Popover/window size: 280×440 (popover), 700×540 (cleanup), 440×360 (settings), dynamic for AI query windows
 - Font: system fonts with `.caption` / `.callout` / `.headline` semantic sizing
 - Buttons: `.buttonStyle(.plain)` or custom styling
 - Warning box: orange tint (`Color.orange.opacity(0.2)`), triangle icon
 - Code card: green monospace (`Color(red:0.1, green:0.35, blue:0.1)`), border radius
 
 ## Last Active
-2026-07-09
+2026-07-15
