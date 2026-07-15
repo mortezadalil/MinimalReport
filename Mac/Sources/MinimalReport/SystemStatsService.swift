@@ -33,7 +33,7 @@ enum SystemStatsService {
         return (Int64(vm.free_count) + Int64(vm.speculative_count)) * pageSize
     }
 
-    private static func vmStats() -> vm_statistics64? {
+    static func vmStats() -> vm_statistics64? {
         var vmStats = vm_statistics64()
         var count = mach_msg_type_number_t(
             MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size
@@ -48,17 +48,7 @@ enum SystemStatsService {
 
     private static func ramStats() -> (Int64, Int64) {
         let total = Int64(ProcessInfo.processInfo.physicalMemory)
-
-        var vmStats = vm_statistics64()
-        var count = mach_msg_type_number_t(
-            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size
-        )
-        let ret = withUnsafeMutablePointer(to: &vmStats) { ptr in
-            ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
-            }
-        }
-        guard ret == KERN_SUCCESS else { return (total, 0) }
+        guard let vmStats = vmStats() else { return (total, 0) }
 
         let pageSize = Int64(vm_page_size)
         let avail = (Int64(vmStats.free_count) + Int64(vmStats.inactive_count)) * pageSize
