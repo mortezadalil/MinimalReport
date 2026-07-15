@@ -62,7 +62,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 620 : 560
+        provider == .openrouter ? 610 : 550
     }
 
     // MARK: - Title
@@ -320,21 +320,6 @@ struct SettingsView: View {
 
     private var buttonBar: some View {
         HStack(spacing: 10) {
-            Button {
-                NSApp.terminate(nil)
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "power")
-                    Text("Quit")
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Color.red.opacity(0.18))
-                .foregroundColor(.red.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-
             testResultView
             Spacer()
 
