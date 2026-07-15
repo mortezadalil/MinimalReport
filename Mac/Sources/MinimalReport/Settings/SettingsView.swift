@@ -22,6 +22,8 @@ struct SettingsView: View {
     @State private var loginItemError: String? = nil
     @State private var showNetworkInMenuBar: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showNetworkSpeed") as? Bool ?? true
+    @State private var showCPUMemoryInMenuBar: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showCPUMemoryInMenuBar") as? Bool ?? true
     @State private var showIpInMenuBar: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showIpInMenuBar") as? Bool ?? true
     @State private var clipboardHistoryEnabled: Bool =
@@ -58,7 +60,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 560 : 500
+        provider == .openrouter ? 590 : 530
     }
 
     // MARK: - Title
@@ -184,6 +186,17 @@ struct SettingsView: View {
                 Spacer().frame(width: 60)
                 Toggle(isOn: $showNetworkInMenuBar) {
                     Text("Show network speed in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            // CPU & memory in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showCPUMemoryInMenuBar) {
+                    Text("Show CPU & memory in menu bar")
                         .font(.callout)
                         .foregroundColor(.white.opacity(0.85))
                 }
@@ -367,6 +380,9 @@ struct SettingsView: View {
         UserDefaults.standard.set(showNetworkInMenuBar, forKey: "minimalReport.showNetworkSpeed")
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.networkSpeedSettingChanged"), object: nil)
+        UserDefaults.standard.set(showCPUMemoryInMenuBar, forKey: "minimalReport.showCPUMemoryInMenuBar")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("minimalReport.cpuMemorySettingChanged"), object: nil)
         UserDefaults.standard.set(showIpInMenuBar, forKey: "minimalReport.showIpInMenuBar")
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.ipSettingChanged"), object: nil)

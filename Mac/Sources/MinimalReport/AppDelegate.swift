@@ -63,7 +63,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupPopover() {
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 280, height: 415)
+        popover.contentSize = NSSize(width: 280, height: 440)
         popover.behavior = .transient
         popover.appearance = NSAppearance(named: .darkAqua)
         popover.contentViewController = NSHostingController(
@@ -120,6 +120,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(applyMenuBarVisibility),
             name: NSNotification.Name("minimalReport.networkSpeedSettingChanged"),
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applyMenuBarVisibility),
+            name: NSNotification.Name("minimalReport.cpuMemorySettingChanged"),
             object: nil
         )
         prevCounters = NetworkSpeedService.readCounters()
