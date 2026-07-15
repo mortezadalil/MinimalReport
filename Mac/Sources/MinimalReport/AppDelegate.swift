@@ -220,6 +220,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.image = parts.isEmpty ? nil : Self.compositeHorizontally(parts, gap: 6)
     }
 
+    private static let menuBarFont = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .medium)
+
+    private static let cpuMemTextColumnW: CGFloat = {
+        let attrs: [NSAttributedString.Key: Any] = [.font: menuBarFont]
+        return ceil(("100%" as NSString).size(withAttributes: attrs).width)
+    }()
+
+    private static let networkTextColumnW: CGFloat = {
+        let attrs: [NSAttributedString.Key: Any] = [.font: menuBarFont]
+        return ceil(("999.9 MB/s" as NSString).size(withAttributes: attrs).width)
+    }()
+
     private static func normalizeSpeed(_ bps: Double) -> Double {
         guard bps > 0 else { return 0 }
         // Log scale: 0 at 0 bps, 1.0 at ~100 MB/s
@@ -227,13 +239,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static func formatSpeedShort(_ bps: Double) -> String {
-        if bps < 1024       { return "0 KB/s" }
-        if bps < 1_048_576  { return String(format: "%.1f KB/s", bps / 1024) }
-        return String(format: "%.1f MB/s", bps / 1_048_576)
+        if bps < 1_048_576 {
+            return String(format: "%6.1f KB/s", max(0, bps) / 1024)
+        }
+        return String(format: "%6.1f MB/s", bps / 1_048_576)
     }
 
     private static func formatPercentShort(_ percent: Double) -> String {
-        String(format: "%.0f%%", percent)
+        String(format: "%3.0f%%", min(100, max(0, percent)))
+    }
+
+    private static func drawRightAlignedText(
+        _ text: NSString,
+        attrs: [NSAttributedString.Key: Any],
+        columnW: CGFloat,
+        rowOriginY: CGFloat,
+        rowH: CGFloat
+    ) {
+        let sz = text.size(withAttributes: attrs)
+        let x = columnW - sz.width
+        let y = rowOriginY + (rowH - sz.height) / 2
+        text.draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
     }
 
     private static func compositeHorizontally(_ images: [NSImage], gap: CGFloat) -> NSImage {
@@ -274,24 +300,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let cpuColor = NSColor(red: 0.25, green: 0.75, blue: 1.0, alpha: 1.0)
         let memColor = NSColor(red: 0.75, green: 0.45, blue: 1.0, alpha: 1.0)
 
-        let font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .medium)
         let cpuText = formatPercentShort(cpuPercent) as NSString
         let memText = formatPercentShort(memoryPercent) as NSString
 
-        let cpuAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: cpuColor]
-        let memAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: memColor]
+        let cpuAttrs: [NSAttributedString.Key: Any] = [.font: menuBarFont, .foregroundColor: cpuColor]
+        let memAttrs: [NSAttributedString.Key: Any] = [.font: menuBarFont, .foregroundColor: memColor]
 
-        let textW = max(cpuText.size(withAttributes: cpuAttrs).width,
-                        memText.size(withAttributes: memAttrs).width)
-        let imgW = showBars ? ceil(textW) + textGap + barsW : ceil(textW)
+        let textColumnW = cpuMemTextColumnW
+        let imgW = textColumnW + (showBars ? textGap + barsW : 0)
 
         let image = NSImage(size: NSSize(width: imgW, height: imgH), flipped: false) { _ in
-            let cpuSz = cpuText.size(withAttributes: cpuAttrs)
-            cpuText.draw(at: NSPoint(x: 0, y: rowH + (rowH - cpuSz.height) / 2),
-                         withAttributes: cpuAttrs)
+            drawRightAlignedText(cpuText, attrs: cpuAttrs, columnW: textColumnW,
+                                 rowOriginY: rowH, rowH: rowH)
 
             if showBars {
-                let barX = ceil(textW) + textGap
+                let barX = textColumnW + textGap
                 cpuColor.setFill()
                 for i in 0..<n {
                     let norm = CGFloat(i < cpuSamples.count ? cpuSamples[i] : 0)
@@ -303,12 +326,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
-            let memSz = memText.size(withAttributes: memAttrs)
-            memText.draw(at: NSPoint(x: 0, y: (rowH - memSz.height) / 2),
-                         withAttributes: memAttrs)
+            drawRightAlignedText(memText, attrs: memAttrs, columnW: textColumnW,
+                                 rowOriginY: 0, rowH: rowH)
 
             if showBars {
-                let barX = ceil(textW) + textGap
+                let barX = textColumnW + textGap
                 memColor.setFill()
                 for i in 0..<n {
                     let norm = CGFloat(i < memSamples.count ? memSamples[i] : 0)
@@ -342,25 +364,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let greenColor  = NSColor(red: 0.2,  green: 0.85, blue: 0.45, alpha: 1.0)
         let yellowColor = NSColor(red: 1.0,  green: 0.80, blue: 0.1,  alpha: 1.0)
 
-        let font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .medium)
         let downText = formatSpeedShort(downBps) as NSString
         let upText   = formatSpeedShort(upBps)   as NSString
 
-        let downAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: greenColor]
-        let upAttrs:   [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: yellowColor]
+        let downAttrs: [NSAttributedString.Key: Any] = [.font: menuBarFont, .foregroundColor: greenColor]
+        let upAttrs:   [NSAttributedString.Key: Any] = [.font: menuBarFont, .foregroundColor: yellowColor]
 
-        let textW = max(downText.size(withAttributes: downAttrs).width,
-                        upText.size(withAttributes: upAttrs).width)
-        let imgW = showBars ? ceil(textW) + textGap + barsW : ceil(textW)
+        let textColumnW = networkTextColumnW
+        let imgW = textColumnW + (showBars ? textGap + barsW : 0)
 
         let image = NSImage(size: NSSize(width: imgW, height: imgH), flipped: false) { _ in
-            // ── Top row: download (green) ──────────────────────────────
-            let downSz = downText.size(withAttributes: downAttrs)
-            downText.draw(at: NSPoint(x: 0, y: rowH + (rowH - downSz.height) / 2),
-                          withAttributes: downAttrs)
+            drawRightAlignedText(downText, attrs: downAttrs, columnW: textColumnW,
+                                 rowOriginY: rowH, rowH: rowH)
 
             if showBars {
-                let barX = ceil(textW) + textGap
+                let barX = textColumnW + textGap
                 greenColor.setFill()
                 for i in 0..<n {
                     let norm = CGFloat(i < downSamples.count ? downSamples[i] : 0)
@@ -372,13 +390,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
-            // ── Bottom row: upload (yellow) ────────────────────────────
-            let upSz = upText.size(withAttributes: upAttrs)
-            upText.draw(at: NSPoint(x: 0, y: (rowH - upSz.height) / 2),
-                        withAttributes: upAttrs)
+            drawRightAlignedText(upText, attrs: upAttrs, columnW: textColumnW,
+                                 rowOriginY: 0, rowH: rowH)
 
             if showBars {
-                let barX = ceil(textW) + textGap
+                let barX = textColumnW + textGap
                 yellowColor.setFill()
                 for i in 0..<n {
                     let norm = CGFloat(i < upSamples.count ? upSamples[i] : 0)
