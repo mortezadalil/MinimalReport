@@ -88,8 +88,9 @@ NSApp.setActivationPolicy(.accessory)
 - `refreshMenuBarImage()` composites enabled widgets horizontally: `[CPU/MEM image][Network image]` then title (flag + IP) sits to the right
 - CPU/MEM image: two stacked rows (cyan CPU %, purple memory %), 5-bar animated waveform each — mirrors network widget layout
 - Network image: unchanged green/yellow download/upload rows
-- Toggles in UserDefaults: `minimalReport.showNetworkSpeed`, `minimalReport.showCPUMemoryInMenuBar`, `minimalReport.showIpInMenuBar`
-- Setting changes post `minimalReport.networkSpeedSettingChanged` or `minimalReport.cpuMemorySettingChanged` → `refreshMenuBarImage()`
+- Toggles in UserDefaults: `minimalReport.showNetworkSpeed`, `minimalReport.showCPUMemoryInMenuBar`, `minimalReport.showMenuBarWaveforms`, `minimalReport.showIpInMenuBar`
+- Setting changes post `minimalReport.networkSpeedSettingChanged`, `minimalReport.cpuMemorySettingChanged`, or `minimalReport.menuBarWaveformsSettingChanged` → `refreshMenuBarImage()`
+- When `showMenuBarWaveforms` is off, menu bar widgets show text-only values (no 5-bar waveforms)
 
 ### Swift 6 Tools + Swift 5 Language Mode
 Using `swift-tools-version: 6.0` with `.swiftLanguageMode(.v5)` avoids strict concurrency errors while using modern Swift Package API. Main classes do NOT carry `@MainActor`; instead, `MainActor.run()` wraps updates.
@@ -137,7 +138,7 @@ curl https://api.ipify.org?format=json
 
 ## Settings
 - Launch at Login: `SMAppService.mainApp.register()` / `.unregister()` (macOS 13+ native API)
-- Non-sensitive prefs (UserDefaults): `minimalReport.aiProvider`, `minimalReport.glmModel`, `minimalReport.openrouterModel`, `minimalReport.showNetworkSpeed`, `minimalReport.showCPUMemoryInMenuBar`, `minimalReport.showIpInMenuBar`
+- Non-sensitive prefs (UserDefaults): `minimalReport.aiProvider`, `minimalReport.glmModel`, `minimalReport.openrouterModel`, `minimalReport.showNetworkSpeed`, `minimalReport.showCPUMemoryInMenuBar`, `minimalReport.showMenuBarWaveforms`, `minimalReport.showIpInMenuBar`
 - **API keys (Keychain, service `com.morteza.minimalreport`)**: accounts `glmApiKey`, `openrouterApiKey` — never written to UserDefaults or logs
 - On app quit: all in-flight windows close cleanly via `onClose` callbacks
 

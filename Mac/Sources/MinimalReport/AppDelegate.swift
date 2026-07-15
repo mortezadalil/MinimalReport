@@ -103,6 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static let networkSpeedKey = "minimalReport.showNetworkSpeed"
     private static let cpuMemoryKey = "minimalReport.showCPUMemoryInMenuBar"
+    private static let menuBarWaveformsKey = "minimalReport.showMenuBarWaveforms"
     private static let showIpKey = "minimalReport.showIpInMenuBar"
     private static let clipboardHistoryEnabledKey = "minimalReport.clipboardHistoryEnabled"
     private static let clipboardHistorySizeKey = "minimalReport.clipboardHistorySizeMB"
@@ -113,6 +114,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var cpuMemoryEnabled: Bool {
         UserDefaults.standard.object(forKey: Self.cpuMemoryKey) as? Bool ?? true
+    }
+
+    private var menuBarWaveformsEnabled: Bool {
+        UserDefaults.standard.object(forKey: Self.menuBarWaveformsKey) as? Bool ?? true
     }
 
     private func startMenuBarMonitor() {
@@ -126,6 +131,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(applyMenuBarVisibility),
             name: NSNotification.Name("minimalReport.cpuMemorySettingChanged"),
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applyMenuBarVisibility),
+            name: NSNotification.Name("minimalReport.menuBarWaveformsSettingChanged"),
             object: nil
         )
         prevCounters = NetworkSpeedService.readCounters()
@@ -195,13 +206,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 cpuPercent: appState.cpuUsagePercent,
                 memoryPercent: appState.memoryUsagePercent,
                 cpuSamples: cpuSamples,
-                memSamples: memSamples))
+                memSamples: memSamples,
+                showBars: menuBarWaveformsEnabled))
         }
 
         if networkSpeedEnabled {
             parts.append(Self.makeNetworkImage(
                 downBps: lastDownBps, upBps: lastUpBps,
-                downSamples: downSamples, upSamples: upSamples))
+                downSamples: downSamples, upSamples: upSamples,
+                showBars: menuBarWaveformsEnabled))
         }
 
         statusItem.button?.image = parts.isEmpty ? nil : Self.compositeHorizontally(parts, gap: 6)
@@ -247,7 +260,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static func makeCPUMemoryImage(
         cpuPercent: Double, memoryPercent: Double,
-        cpuSamples: [Double], memSamples: [Double]
+        cpuSamples: [Double], memSamples: [Double],
+        showBars: Bool
     ) -> NSImage {
         let rowH: CGFloat  = 11
         let imgH: CGFloat  = rowH * 2
@@ -269,36 +283,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let textW = max(cpuText.size(withAttributes: cpuAttrs).width,
                         memText.size(withAttributes: memAttrs).width)
-        let imgW = ceil(textW) + textGap + barsW
+        let imgW = showBars ? ceil(textW) + textGap + barsW : ceil(textW)
 
         let image = NSImage(size: NSSize(width: imgW, height: imgH), flipped: false) { _ in
             let cpuSz = cpuText.size(withAttributes: cpuAttrs)
             cpuText.draw(at: NSPoint(x: 0, y: rowH + (rowH - cpuSz.height) / 2),
                          withAttributes: cpuAttrs)
 
-            let barX = ceil(textW) + textGap
-            cpuColor.setFill()
-            for i in 0..<n {
-                let norm = CGFloat(i < cpuSamples.count ? cpuSamples[i] : 0)
-                let h = max(1.5, norm * (rowH - 1))
-                let x = barX + CGFloat(i) * (barW + barGap)
-                NSBezierPath(roundedRect: NSRect(x: x, y: rowH + (rowH - h) / 2,
-                                                  width: barW, height: h),
-                             xRadius: 0.5, yRadius: 0.5).fill()
+            if showBars {
+                let barX = ceil(textW) + textGap
+                cpuColor.setFill()
+                for i in 0..<n {
+                    let norm = CGFloat(i < cpuSamples.count ? cpuSamples[i] : 0)
+                    let h = max(1.5, norm * (rowH - 1))
+                    let x = barX + CGFloat(i) * (barW + barGap)
+                    NSBezierPath(roundedRect: NSRect(x: x, y: rowH + (rowH - h) / 2,
+                                                      width: barW, height: h),
+                                 xRadius: 0.5, yRadius: 0.5).fill()
+                }
             }
 
             let memSz = memText.size(withAttributes: memAttrs)
             memText.draw(at: NSPoint(x: 0, y: (rowH - memSz.height) / 2),
                          withAttributes: memAttrs)
 
-            memColor.setFill()
-            for i in 0..<n {
-                let norm = CGFloat(i < memSamples.count ? memSamples[i] : 0)
-                let h = max(1.5, norm * (rowH - 1))
-                let x = barX + CGFloat(i) * (barW + barGap)
-                NSBezierPath(roundedRect: NSRect(x: x, y: (rowH - h) / 2,
-                                                  width: barW, height: h),
-                             xRadius: 0.5, yRadius: 0.5).fill()
+            if showBars {
+                let barX = ceil(textW) + textGap
+                memColor.setFill()
+                for i in 0..<n {
+                    let norm = CGFloat(i < memSamples.count ? memSamples[i] : 0)
+                    let h = max(1.5, norm * (rowH - 1))
+                    let x = barX + CGFloat(i) * (barW + barGap)
+                    NSBezierPath(roundedRect: NSRect(x: x, y: (rowH - h) / 2,
+                                                      width: barW, height: h),
+                                 xRadius: 0.5, yRadius: 0.5).fill()
+                }
             }
 
             return true
@@ -309,7 +328,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static func makeNetworkImage(
         downBps: Double, upBps: Double,
-        downSamples: [Double], upSamples: [Double]
+        downSamples: [Double], upSamples: [Double],
+        showBars: Bool
     ) -> NSImage {
         let rowH: CGFloat  = 11      // height of each speed row
         let imgH: CGFloat  = rowH * 2
@@ -331,7 +351,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let textW = max(downText.size(withAttributes: downAttrs).width,
                         upText.size(withAttributes: upAttrs).width)
-        let imgW = ceil(textW) + textGap + barsW
+        let imgW = showBars ? ceil(textW) + textGap + barsW : ceil(textW)
 
         let image = NSImage(size: NSSize(width: imgW, height: imgH), flipped: false) { _ in
             // ── Top row: download (green) ──────────────────────────────
@@ -339,15 +359,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             downText.draw(at: NSPoint(x: 0, y: rowH + (rowH - downSz.height) / 2),
                           withAttributes: downAttrs)
 
-            let barX = ceil(textW) + textGap
-            greenColor.setFill()
-            for i in 0..<n {
-                let norm = CGFloat(i < downSamples.count ? downSamples[i] : 0)
-                let h = max(1.5, norm * (rowH - 1))
-                let x = barX + CGFloat(i) * (barW + barGap)
-                NSBezierPath(roundedRect: NSRect(x: x, y: rowH + (rowH - h) / 2,
-                                                  width: barW, height: h),
-                             xRadius: 0.5, yRadius: 0.5).fill()
+            if showBars {
+                let barX = ceil(textW) + textGap
+                greenColor.setFill()
+                for i in 0..<n {
+                    let norm = CGFloat(i < downSamples.count ? downSamples[i] : 0)
+                    let h = max(1.5, norm * (rowH - 1))
+                    let x = barX + CGFloat(i) * (barW + barGap)
+                    NSBezierPath(roundedRect: NSRect(x: x, y: rowH + (rowH - h) / 2,
+                                                      width: barW, height: h),
+                                 xRadius: 0.5, yRadius: 0.5).fill()
+                }
             }
 
             // ── Bottom row: upload (yellow) ────────────────────────────
@@ -355,14 +377,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             upText.draw(at: NSPoint(x: 0, y: (rowH - upSz.height) / 2),
                         withAttributes: upAttrs)
 
-            yellowColor.setFill()
-            for i in 0..<n {
-                let norm = CGFloat(i < upSamples.count ? upSamples[i] : 0)
-                let h = max(1.5, norm * (rowH - 1))
-                let x = barX + CGFloat(i) * (barW + barGap)
-                NSBezierPath(roundedRect: NSRect(x: x, y: (rowH - h) / 2,
-                                                  width: barW, height: h),
-                             xRadius: 0.5, yRadius: 0.5).fill()
+            if showBars {
+                let barX = ceil(textW) + textGap
+                yellowColor.setFill()
+                for i in 0..<n {
+                    let norm = CGFloat(i < upSamples.count ? upSamples[i] : 0)
+                    let h = max(1.5, norm * (rowH - 1))
+                    let x = barX + CGFloat(i) * (barW + barGap)
+                    NSBezierPath(roundedRect: NSRect(x: x, y: (rowH - h) / 2,
+                                                      width: barW, height: h),
+                                 xRadius: 0.5, yRadius: 0.5).fill()
+                }
             }
 
             return true

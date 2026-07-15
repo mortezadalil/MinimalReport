@@ -193,6 +193,7 @@ AI response windows open as **independent, draggable NSWindows** — move them a
 | **Launch at Login** | Registers with `SMAppService` (macOS 13 native API, Touch ID-compatible) |
 | **Show network speed / IP in menu bar** | Toggle each menu-bar indicator on or off |
 | **Show CPU & memory in menu bar** | Toggle the stacked CPU % / memory used % widget on or off |
+| **Show activity bars in menu bar** | Toggle the 5-bar waveform graphs next to CPU, memory, download, and upload values |
 | **Clipboard history** | Enable **⌘⌥V** clipboard history and set its max storage size (MB) |
 | **Quit** | Cleanly exits the LSUIElement app (no dock icon = no other way to quit) |
 
