@@ -96,7 +96,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let ip = appState.ipAddress
         let flag = appState.countryFlag
         let showIp = UserDefaults.standard.object(forKey: Self.showIpKey) as? Bool ?? true
-        statusItem.button?.title = showIp ? "\(flag) \(ip)" : flag
+        let showFlag = UserDefaults.standard.object(forKey: Self.showIpFlagKey) as? Bool ?? true
+
+        var parts: [String] = []
+        if showFlag { parts.append(flag) }
+        if showIp { parts.append(ip) }
+        statusItem.button?.title = parts.joined(separator: " ")
     }
 
     // MARK: - Menu bar metrics
@@ -105,6 +110,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private static let cpuMemoryKey = "minimalReport.showCPUMemoryInMenuBar"
     private static let menuBarWaveformsKey = "minimalReport.showMenuBarWaveforms"
     private static let showIpKey = "minimalReport.showIpInMenuBar"
+    private static let showIpFlagKey = "minimalReport.showIpFlagInMenuBar"
     private static let clipboardHistoryEnabledKey = "minimalReport.clipboardHistoryEnabled"
     private static let clipboardHistorySizeKey = "minimalReport.clipboardHistorySizeMB"
 

@@ -28,6 +28,8 @@ struct SettingsView: View {
         UserDefaults.standard.object(forKey: "minimalReport.showMenuBarWaveforms") as? Bool ?? true
     @State private var showIpInMenuBar: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showIpInMenuBar") as? Bool ?? true
+    @State private var showIpFlagInMenuBar: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showIpFlagInMenuBar") as? Bool ?? true
     @State private var clipboardHistoryEnabled: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.clipboardHistoryEnabled") as? Bool ?? true
     @State private var clipboardSizeMBText: String = {
@@ -62,7 +64,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 610 : 550
+        provider == .openrouter ? 640 : 580
     }
 
     // MARK: - Title
@@ -227,6 +229,17 @@ struct SettingsView: View {
                 .toggleStyle(.checkbox)
             }
 
+            // Country flag in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showIpFlagInMenuBar) {
+                    Text("Show country flag in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
             // Clipboard history
             HStack(spacing: 12) {
                 Spacer().frame(width: 60)
@@ -385,6 +398,7 @@ struct SettingsView: View {
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.menuBarWaveformsSettingChanged"), object: nil)
         UserDefaults.standard.set(showIpInMenuBar, forKey: "minimalReport.showIpInMenuBar")
+        UserDefaults.standard.set(showIpFlagInMenuBar, forKey: "minimalReport.showIpFlagInMenuBar")
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.ipSettingChanged"), object: nil)
         UserDefaults.standard.set(clipboardHistoryEnabled, forKey: "minimalReport.clipboardHistoryEnabled")
