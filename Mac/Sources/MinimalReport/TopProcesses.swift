@@ -275,8 +275,8 @@ struct TopProcessesView: View {
                 // simple colorless refresh-style icon.
                 if kind == .network {
                     Button { autoRefresh.toggle() } label: {
-                        Image(systemName: autoRefresh ? "arrow.clockwise" : "arrow.clockwise.circle")
-                            .font(.system(size: 12, weight: .medium))
+                        Image(systemName: autoRefresh ? "stop.circle" : "play.circle")
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.white.opacity(0.6))
                     }
                     .buttonStyle(.plain)

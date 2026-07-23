@@ -96,41 +96,46 @@ final class ClipboardHistoryPanel: NSWindowController, NSWindowDelegate {
         // being re-captured as a new (duplicate) history record.
         history.putOnPasteboard(item)
 
+        let trusted = PasteHelper.isTrusted
+        // Capture the target app before closing, then restore its focus.
+        let target = previousApp
         close()
-        // Return focus to the app the user came from, then paste there.
-        previousApp?.activate()
+        target?.activate()
 
-        // ALWAYS attempt the paste. When Accessibility is granted the keystroke
-        // lands in the focused field; when it isn't, it silently no-ops (the
-        // item is already on the clipboard, so ⌘V still works manually). We do
-        // NOT gate this on AXIsProcessTrusted() because that check returns a
-        // stale false after the app is rebuilt/re-signed — gating here is what
-        // made the "press ⌘V" alert show on every selection.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+        // Attempt the paste. When Accessibility is granted the keystroke lands
+        // in the focused field; otherwise macOS drops it silently (the item is
+        // still on the clipboard for a manual ⌘V). A slightly longer delay lets
+        // focus finish returning to the target app first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
             PasteHelper.synthesizePaste()
         }
 
-        // Nudge about Accessibility at most ONCE, ever.
-        if !PasteHelper.isTrusted { showAccessibilityHintOnce() }
+        // If auto-paste can't work (not trusted), surface why — once per launch,
+        // so a permission that went stale after an app update is discoverable
+        // instead of silently failing.
+        if !trusted { promptAccessibilityIfNeeded() }
     }
 
-    private static let hintShownKey = "minimalReport.clipboardAXHintShown"
+    /// Shown at most once per app launch when Accessibility isn't granted.
+    private static var hintShownThisLaunch = false
 
-    private func showAccessibilityHintOnce() {
-        guard !UserDefaults.standard.bool(forKey: Self.hintShownKey) else { return }
-        UserDefaults.standard.set(true, forKey: Self.hintShownKey)
+    private func promptAccessibilityIfNeeded() {
+        guard !Self.hintShownThisLaunch else { return }
+        Self.hintShownThisLaunch = true
 
         // Fire the system permission dialog so the app appears in the list.
         PasteHelper.ensureTrusted(prompt: true)
 
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "Enable automatic paste (optional)"
+        alert.messageText = "Enable automatic paste"
         alert.informativeText = """
-            To paste automatically, grant Accessibility access to MinimalReport in \
+            The item is on your clipboard — press ⌘V to paste it now.
+
+            For automatic paste, grant Accessibility access to MinimalReport in \
             System Settings ▸ Privacy & Security ▸ Accessibility, then QUIT and \
-            reopen the app once. Until then, the item is copied — just press ⌘V. \
-            This message won't show again.
+            reopen the app once. (After an app update you may need to remove and \
+            re-add it.)
             """
         alert.addButton(withTitle: "OK")
         alert.runModal()
@@ -211,11 +216,27 @@ private struct ClipboardHistoryView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(history.displayItems) { item in
-                        row(item)
-                        Divider().overlay(Color.white.opacity(0.05))
+            let pinned = history.items.filter { $0.isPinned }
+            let unpinned = history.items.filter { !$0.isPinned }
+            VStack(spacing: 0) {
+                // Pinned items are fixed at the top and never scroll.
+                if !pinned.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(pinned) { item in
+                            row(item)
+                            Divider().overlay(Color.white.opacity(0.05))
+                        }
+                    }
+                    .background(Color.accentColor.opacity(0.06))
+                    Divider().overlay(Color.white.opacity(0.15))
+                }
+                // Recent (unpinned) items scroll below the pinned section.
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(unpinned) { item in
+                            row(item)
+                            Divider().overlay(Color.white.opacity(0.05))
+                        }
                     }
                 }
             }
