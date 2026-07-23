@@ -2,13 +2,16 @@ import Foundation
 import Darwin
 
 struct CPUSample {
-    let user: UInt32
-    let system: UInt32
-    let idle: UInt32
-    let nice: UInt32
+    // 64-bit accumulators: each core's cpu_ticks are UInt32 and grow since boot,
+    // so summing them across many cores in a UInt32 would overflow on long
+    // uptimes (≈50 days on a 10-core machine). UInt64 removes that risk.
+    let user: UInt64
+    let system: UInt64
+    let idle: UInt64
+    let nice: UInt64
 
-    var total: UInt32 { user + system + idle + nice }
-    var used: UInt32 { user + system + nice }
+    var total: UInt64 { user + system + idle + nice }
+    var used: UInt64 { user + system + nice }
 }
 
 enum CPUMemoryService {
@@ -33,10 +36,10 @@ enum CPUMemoryService {
             )
         }
 
-        var user: UInt32 = 0
-        var system: UInt32 = 0
-        var idle: UInt32 = 0
-        var nice: UInt32 = 0
+        var user: UInt64 = 0
+        var system: UInt64 = 0
+        var idle: UInt64 = 0
+        var nice: UInt64 = 0
 
         let cpuLoadInfo = cpuInfo.withMemoryRebound(
             to: processor_cpu_load_info.self,
@@ -44,10 +47,10 @@ enum CPUMemoryService {
         ) { $0 }
 
         for i in 0..<Int(numCPUs) {
-            user   += cpuLoadInfo[i].cpu_ticks.0
-            system += cpuLoadInfo[i].cpu_ticks.1
-            idle   += cpuLoadInfo[i].cpu_ticks.2
-            nice   += cpuLoadInfo[i].cpu_ticks.3
+            user   += UInt64(cpuLoadInfo[i].cpu_ticks.0)
+            system += UInt64(cpuLoadInfo[i].cpu_ticks.1)
+            idle   += UInt64(cpuLoadInfo[i].cpu_ticks.2)
+            nice   += UInt64(cpuLoadInfo[i].cpu_ticks.3)
         }
 
         return CPUSample(user: user, system: system, idle: idle, nice: nice)
