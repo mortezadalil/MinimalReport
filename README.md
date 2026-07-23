@@ -2,7 +2,7 @@
 
 # MinimalReport
 
-**A powerful menu bar utility — public IP, system stats, smart disk cleanup, and AI-powered analysis.**
+**A powerful macOS menu bar utility — public IP, live CPU/memory/network, clipboard history, smart disk & memory cleanup, and AI-powered analysis.**
 
 [![macOS](https://img.shields.io/badge/macOS-13%2B-blue?logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5%20%2F%206%20tools-orange?logo=swift&logoColor=white)](https://swift.org)
@@ -24,11 +24,11 @@
 
 ## What is MinimalReport?
 
-MinimalReport is a **macOS menu bar app** — no dock icon, no Cmd+Tab entry, no bloat. Click the menu bar item to see your public IP, country, disk, RAM, and real-time network speed at a glance. Open the Disk Cleanup window to reclaim space across every package manager and app directory on your Mac. Then let the **AI engine** analyze your system and tell you exactly what to delete, what's safe, and where every app hides its cache.
+MinimalReport is a **macOS menu bar app** — no dock icon, no Cmd+Tab entry, no bloat. The menu bar shows live **CPU %, memory %, and network speed** beside your **public IP + country flag**. Click it for a popover with per-resource **top-process hover cards** (quit any hog inline). Press **⌘⌥V** anywhere for a **clipboard history** (text + images, pinnable). Open **Disk Cleanup** to reclaim space across every package manager and app directory — with an **AI engine** that tells you what's safe to delete — or **Memory Cleanup** to free inactive memory. Everything you show in the menu bar is toggleable in Settings.
 
 ```
-Menu bar:   ↓ 12.4 KB/s ████  🇮🇷  1.2.3.4
-            ↑  3.1 KB/s ██
+Menu bar:   42% ▁▃▅   ↓ 12.4 KB/s ████   🇮🇷  1.2.3.4
+            63% ▂▂▄   ↑  3.1 KB/s ██
 ```
 
 ---
@@ -187,13 +187,14 @@ AI response windows open as **independent, draggable NSWindows** — move them a
 | Setting | Description |
 |---------|-------------|
 | **Provider** | Switch between **GLM (Z.ai)** and **OpenRouter** |
-| **API Key** | Stored securely in UserDefaults per provider |
+| **API Key** | Stored securely in the macOS **Keychain** per provider (never UserDefaults) |
 | **Model** | Free-text with popular model suggestions for OpenRouter |
 | **Test Connection** | Pings the API and shows ✓ / ✗ instantly |
 | **Launch at Login** | Registers with `SMAppService` (macOS 13 native API, Touch ID-compatible) |
-| **Show network speed / IP in menu bar** | Toggle each menu-bar indicator on or off |
+| **Show network speed / IP / country flag in menu bar** | Toggle each menu-bar indicator independently |
 | **Show CPU & memory in menu bar** | Toggle the stacked CPU % / memory used % widget on or off |
 | **Show activity bars in menu bar** | Toggle the 5-bar waveform graphs next to CPU, memory, download, and upload values |
+| **Use colored text in menu bar** | Colored accents vs. a monochrome template that follows the system menu-bar color |
 | **Clipboard history** | Enable **⌘⌥V** clipboard history and set its max storage size (MB) |
 | **Quit** | Cleanly exits the LSUIElement app (no dock icon = no other way to quit) |
 
