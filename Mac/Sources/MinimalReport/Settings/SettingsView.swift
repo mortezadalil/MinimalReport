@@ -22,8 +22,16 @@ struct SettingsView: View {
     @State private var loginItemError: String? = nil
     @State private var showNetworkInMenuBar: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showNetworkSpeed") as? Bool ?? true
+    @State private var showCPUMemoryInMenuBar: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showCPUMemoryInMenuBar") as? Bool ?? true
+    @State private var showMenuBarWaveforms: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showMenuBarWaveforms") as? Bool ?? true
+    @State private var showMenuBarColors: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showMenuBarColors") as? Bool ?? true
     @State private var showIpInMenuBar: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.showIpInMenuBar") as? Bool ?? true
+    @State private var showIpFlagInMenuBar: Bool =
+        UserDefaults.standard.object(forKey: "minimalReport.showIpFlagInMenuBar") as? Bool ?? true
     @State private var clipboardHistoryEnabled: Bool =
         UserDefaults.standard.object(forKey: "minimalReport.clipboardHistoryEnabled") as? Bool ?? true
     @State private var clipboardSizeMBText: String = {
@@ -58,7 +66,7 @@ struct SettingsView: View {
     }
 
     private var dynamicHeight: CGFloat {
-        provider == .openrouter ? 560 : 500
+        provider == .openrouter ? 670 : 610
     }
 
     // MARK: - Title
@@ -190,11 +198,55 @@ struct SettingsView: View {
                 .toggleStyle(.checkbox)
             }
 
+            // CPU & memory in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showCPUMemoryInMenuBar) {
+                    Text("Show CPU & memory in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            // Activity bars in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showMenuBarWaveforms) {
+                    Text("Show activity bars in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            // Colored text in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showMenuBarColors) {
+                    Text("Use colored text in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
             // IP address in menu bar
             HStack(spacing: 12) {
                 Spacer().frame(width: 60)
                 Toggle(isOn: $showIpInMenuBar) {
                     Text("Show IP address in menu bar")
+                        .font(.callout)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            // Country flag in menu bar
+            HStack(spacing: 12) {
+                Spacer().frame(width: 60)
+                Toggle(isOn: $showIpFlagInMenuBar) {
+                    Text("Show country flag in menu bar")
                         .font(.callout)
                         .foregroundColor(.white.opacity(0.85))
                 }
@@ -294,21 +346,6 @@ struct SettingsView: View {
 
     private var buttonBar: some View {
         HStack(spacing: 10) {
-            Button {
-                NSApp.terminate(nil)
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "power")
-                    Text("Quit")
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Color.red.opacity(0.18))
-                .foregroundColor(.red.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-
             testResultView
             Spacer()
 
@@ -367,7 +404,17 @@ struct SettingsView: View {
         UserDefaults.standard.set(showNetworkInMenuBar, forKey: "minimalReport.showNetworkSpeed")
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.networkSpeedSettingChanged"), object: nil)
+        UserDefaults.standard.set(showCPUMemoryInMenuBar, forKey: "minimalReport.showCPUMemoryInMenuBar")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("minimalReport.cpuMemorySettingChanged"), object: nil)
+        UserDefaults.standard.set(showMenuBarWaveforms, forKey: "minimalReport.showMenuBarWaveforms")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("minimalReport.menuBarWaveformsSettingChanged"), object: nil)
+        UserDefaults.standard.set(showMenuBarColors, forKey: "minimalReport.showMenuBarColors")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("minimalReport.menuBarColorsSettingChanged"), object: nil)
         UserDefaults.standard.set(showIpInMenuBar, forKey: "minimalReport.showIpInMenuBar")
+        UserDefaults.standard.set(showIpFlagInMenuBar, forKey: "minimalReport.showIpFlagInMenuBar")
         NotificationCenter.default.post(
             name: NSNotification.Name("minimalReport.ipSettingChanged"), object: nil)
         UserDefaults.standard.set(clipboardHistoryEnabled, forKey: "minimalReport.clipboardHistoryEnabled")

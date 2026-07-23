@@ -4,10 +4,10 @@ import Foundation
 import Darwin
 
 /// Samples the top resource-consuming processes for the hover modals shown on
-/// the RAM and Net rows of the popover.
+/// the CPU, RAM, and Net rows of the popover.
 enum TopProcesses {
 
-    enum Kind { case memory, network }
+    enum Kind { case memory, network, cpu }
 
     struct Row: Identifiable {
         let id = UUID()
@@ -23,6 +23,7 @@ enum TopProcesses {
             switch kind {
             case .memory:  return memory()
             case .network: return network()
+            case .cpu:     return cpu()
             }
         }.value
     }
@@ -49,6 +50,28 @@ enum TopProcesses {
             guard !name.isEmpty else { continue }
             let bytes = rssKB * 1024
             rows.append(Row(pid: pid, name: name, value: bytes, display: formatBytes(bytes)))
+            if rows.count >= 20 { break }
+        }
+        return rows
+    }
+
+    // MARK: - CPU (% via ps)
+
+    private static func cpu() -> [Row] {
+        let out = run("/bin/ps", ["-Aceo", "pid,pcpu,comm", "-r"])
+        var rows: [Row] = []
+        for line in out.split(separator: "\n").dropFirst() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let parts = trimmed.split(separator: " ", maxSplits: 2,
+                                      omittingEmptySubsequences: true)
+            guard parts.count == 3,
+                  let pid = Int32(parts[0]),
+                  let cpuPercent = Double(parts[1]), cpuPercent > 0 else { continue }
+            let name = String(parts[2]).trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { continue }
+            let scaled = Int64(cpuPercent * 100)
+            rows.append(Row(pid: pid, name: name, value: scaled,
+                            display: String(format: "%.1f%%", cpuPercent)))
             if rows.count >= 20 { break }
         }
         return rows
@@ -190,8 +213,20 @@ struct TopProcessesView: View {
 
     private let bg = Color(red: 0.12, green: 0.12, blue: 0.14)
 
-    private var title: String { kind == .memory ? "Top Memory" : "Top Network" }
-    private var icon: String { kind == .memory ? "memorychip" : "network" }
+    private var title: String {
+        switch kind {
+        case .memory: return "Top Memory"
+        case .network: return "Top Network"
+        case .cpu: return "Top CPU"
+        }
+    }
+    private var icon: String {
+        switch kind {
+        case .memory: return "memorychip"
+        case .network: return "network"
+        case .cpu: return "cpu"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

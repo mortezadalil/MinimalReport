@@ -9,7 +9,7 @@ struct PopoverView: View {
     let onOpenSettings: () -> Void
 
     /// Which stat row is hovered (drives the top-processes modal).
-    private enum HoverRow { case ram, net }
+    private enum HoverRow { case cpu, ram, net }
     @State private var hoveredRow: HoverRow?
     @State private var closeWork: DispatchWorkItem?
 
@@ -55,7 +55,13 @@ struct PopoverView: View {
             separator
             statRow(label: "IP", value: "\(appState.countryFlag)  \(appState.ipAddress)")
             statRow(label: "Disk", value: appState.diskDisplay)
-            statRow(label: "RAM", value: appState.ramDisplay)
+            statRow(label: "CPU", value: appState.cpuDisplay)
+                .contentShape(Rectangle())
+                .onHover { inside in setHover(.cpu, inside) }
+                .popover(isPresented: hoverBinding(.cpu), arrowEdge: .trailing) {
+                    TopProcessesView(kind: .cpu, onHover: modalHover)
+                }
+            statRow(label: "RAM", value: "\(appState.memoryUsedDisplay) used · \(appState.ramDisplay)")
                 .contentShape(Rectangle())
                 .onHover { inside in setHover(.ram, inside) }
                 .popover(isPresented: hoverBinding(.ram), arrowEdge: .trailing) {
@@ -72,10 +78,11 @@ struct PopoverView: View {
             cleanupButton
             memoryCleanupButton
             settingsButton
+            quitButton
             footerRow
         }
         .padding(20)
-        .frame(width: 280, height: 415)
+        .frame(width: 280, height: 475)
         .background(Color(red: 0.10, green: 0.10, blue: 0.12))
     }
 
@@ -186,6 +193,21 @@ struct PopoverView: View {
             .padding(.vertical, 7)
             .background(Color.white.opacity(0.08))
             .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var quitButton: some View {
+        Button { NSApp.terminate(nil) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "power")
+                Text("Quit")
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background(Color.red.opacity(0.18))
+            .foregroundColor(.red.opacity(0.85))
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)

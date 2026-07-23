@@ -13,6 +13,8 @@ class AppState: ObservableObject {
     @Published var updateStatus: UpdateStatus = .idle
     @Published var downloadBps: Double = 0
     @Published var uploadBps: Double = 0
+    @Published var cpuUsagePercent: Double = 0
+    @Published var memoryUsagePercent: Double = 0
 
     var menuBarTitle: String { "\(countryFlag) \(ipAddress)" }
 
@@ -26,6 +28,14 @@ class AppState: ObservableObject {
         return "\(formatBytes(ramAvailable)) free / \(formatBytes(ramTotal))"
     }
 
+    var cpuDisplay: String {
+        String(format: "%.0f%%", cpuUsagePercent)
+    }
+
+    var memoryUsedDisplay: String {
+        String(format: "%.0f%%", memoryUsagePercent)
+    }
+
     func updateIP(address: String, countryCode: String?) {
         ipAddress = address
         countryFlag = countryCode.flatMap(flagEmoji) ?? "🏳"
@@ -35,6 +45,11 @@ class AppState: ObservableObject {
     func updateNetworkSpeed(download: Double, upload: Double) {
         downloadBps = download
         uploadBps = upload
+    }
+
+    func updateCPUMemory(cpu: Double, memory: Double) {
+        cpuUsagePercent = cpu
+        memoryUsagePercent = memory
     }
 
     var downloadSpeedDisplay: String { formatSpeed(downloadBps) }

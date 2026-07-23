@@ -41,17 +41,20 @@ Menu bar:   ↓ 12.4 KB/s ████  🇮🇷  1.2.3.4
 |---|---|
 | **Public IP + flag** | Detected concurrently from 3 services — shows the first response, falls back gracefully |
 | **Real-time network speed** | Download ↓ (green) and upload ↑ (yellow) shown directly in the menu bar — two stacked rows with KB/s or MB/s label and a 5-bar animated waveform, updated every second |
+| **Real-time CPU & memory** | CPU % (cyan) and memory used % (purple) shown as a second stacked two-row widget in the menu bar, composited beside the network indicator — updated every second via Mach APIs |
 | **Disk usage** | Free and total capacity, refreshed on demand |
-| **RAM usage** | Free + inactive memory via Mach kernel call |
-| **Top-process hover cards** | Hover the **RAM** or **Net** row to see the top 20 processes for that resource, high → low, in a modern card (~10 rows visible, the rest scroll) — with a per-process ✕ to **quit or force-quit** (hold ⌥). The Net card **refreshes ~once per second** and has a **stop/resume** button (top-right) with a live status line at the bottom; the Net card also shows **today's total download/upload** |
+| **RAM usage** | Live used % in the popover plus free + inactive memory via Mach kernel call |
+| **Top-process hover cards** | Hover the **CPU**, **RAM**, or **Net** row to see the top 20 processes for that resource, high → low, in a modern card (~10 rows visible, the rest scroll) — with a per-process ✕ to **quit or force-quit** (hold ⌥). The Net card **refreshes ~once per second** and has a **stop/resume** button (top-right) with a live status line at the bottom; the Net card also shows **today's total download/upload** |
 | **Auto-refresh** | Polls every 10 seconds in the background |
 | **Menu bar only** | `LSUIElement = YES` — zero dock presence |
 
 Three IP services fire simultaneously in a Swift `TaskGroup`; the fastest win is shown and the rest are cancelled. Country codes are converted to emoji flags via Unicode Regional Indicator scalars — no image assets needed.
 
-Top memory is read from `ps`; per-process network throughput is derived from two `nettop` samples ~0.8s apart. Today's network total is tracked from a daily baseline of the interface byte counters.
+Top memory is read from `ps`; top CPU from `ps -r`; per-process network throughput is derived from two `nettop` samples ~0.8s apart. Today's network total is tracked from a daily baseline of the interface byte counters.
 
 Network speed is measured by reading `getifaddrs` byte counters on all `en*`/`eth*` interfaces every second, computing the delta, and normalising to a log₁₀ scale so both idle (< 10 KB/s) and heavy (> 10 MB/s) traffic are clearly visible in the waveform.
+
+CPU usage is sampled every second via `host_processor_info` (delta of tick counters across all cores). Memory used % is derived from `host_statistics64` as `(physicalMemory − free − inactive) / physicalMemory`.
 
 ---
 
@@ -189,6 +192,8 @@ AI response windows open as **independent, draggable NSWindows** — move them a
 | **Test Connection** | Pings the API and shows ✓ / ✗ instantly |
 | **Launch at Login** | Registers with `SMAppService` (macOS 13 native API, Touch ID-compatible) |
 | **Show network speed / IP in menu bar** | Toggle each menu-bar indicator on or off |
+| **Show CPU & memory in menu bar** | Toggle the stacked CPU % / memory used % widget on or off |
+| **Show activity bars in menu bar** | Toggle the 5-bar waveform graphs next to CPU, memory, download, and upload values |
 | **Clipboard history** | Enable **⌘⌥V** clipboard history and set its max storage size (MB) |
 | **Quit** | Cleanly exits the LSUIElement app (no dock icon = no other way to quit) |
 
@@ -280,6 +285,7 @@ MinimalReport/
 │       ├── IPService.swift              # concurrent fetch from 3 IP APIs
 │       ├── SystemStatsService.swift     # disk (FileManager) + RAM (Mach host_statistics64)
 │       ├── NetworkSpeedService.swift    # getifaddrs byte counters → KB/s or MB/s per second
+│       ├── CPUMemoryService.swift       # host_processor_info CPU % + vm_stats memory used %
 │       ├── PopoverView.swift            # dark-card SwiftUI popover
 │       │
 │       ├── Cleanup/
